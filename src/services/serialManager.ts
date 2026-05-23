@@ -201,6 +201,9 @@ class SerialManager {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_e) { /* ignore */ }
 
+      // 5. Wait for OS to release the port handle before reopening
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       try {
         await port.open({ baudRate: originalBaud });
         this.startReading();
