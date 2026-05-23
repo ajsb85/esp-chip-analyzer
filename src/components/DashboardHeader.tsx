@@ -82,8 +82,22 @@ export const DashboardHeader: FC<DashboardHeaderProps> = ({
             </defs>
           </svg>
         </div>
-        <div>
-          <h1 style={{ fontSize: '1.4rem', margin: 0 }}>ESP32 Chip Analyzer</h1>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <img 
+              src="favicon.svg" 
+              alt="ESP32 Chip Analyzer App Icon" 
+              style={{ 
+                width: '32px', 
+                height: '32px', 
+                borderRadius: '8px', 
+                boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
+                display: 'inline-block',
+                border: '1.5px solid rgba(255,255,255,0.1)'
+              }} 
+            />
+            <h1 style={{ fontSize: '1.4rem', margin: 0, fontWeight: 700, letterSpacing: '-0.025em' }}>ESP32 Chip Analyzer</h1>
+          </div>
           <p style={{ fontStyle: 'normal', fontSize: '0.8rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
             Enterprise Diagnostic Platform & Silicon Labs AN978 Customs Inspector
           </p>
