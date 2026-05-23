@@ -62,7 +62,7 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => {
         // Fallback for offline if not found in cache
         if (event.request.mode === 'navigate') {
-          return caches.match('./index.html') as Promise<Response>;
+          return caches.match('./index.html');
         }
         return new Response('Offline resource not cached.', {
           status: 503,
