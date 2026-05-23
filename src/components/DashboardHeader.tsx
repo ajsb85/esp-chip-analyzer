@@ -1,5 +1,11 @@
 import type { FC } from 'react';
 import type { SerialConnectionState } from '../services/serialManager';
+import { Badge } from '@react-spectrum/s2/Badge';
+import { StatusLight } from '@react-spectrum/s2/StatusLight';
+import { Button } from '@react-spectrum/s2/Button';
+import { Switch } from '@react-spectrum/s2/Switch';
+import { style } from "@react-spectrum/s2/style" with { type: "macro" };
+import DeleteIcon from '@react-spectrum/s2/icons/Delete';
 
 interface DashboardHeaderProps {
   serialState: SerialConnectionState;
@@ -9,6 +15,34 @@ interface DashboardHeaderProps {
   onForgetPort: () => void;
 }
 
+const headerStyles = style({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: 16,
+  paddingX: 24,
+  paddingY: 16,
+  backgroundColor: 'gray-50',
+  borderStyle: 'solid',
+  borderWidth: 1,
+  borderColor: 'gray-200',
+  borderRadius: 'lg',
+  boxShadow: 'elevated',
+});
+
+const appTitleStyles = style({
+  font: 'heading-sm',
+  color: 'neutral',
+  margin: 0,
+});
+
+const subtitleStyles = style({
+  font: 'body-xs',
+  color: 'neutral-subdued',
+  margin: 0,
+});
+
 export const DashboardHeader: FC<DashboardHeaderProps> = ({
   serialState,
   isOnline,
@@ -16,122 +50,102 @@ export const DashboardHeader: FC<DashboardHeaderProps> = ({
   onToggleTheme,
   onForgetPort
 }) => {
+  const isWebSerialSupported = typeof navigator !== 'undefined' && !!navigator.serial;
+  const isWebUsbSupported = typeof navigator !== 'undefined' && !!navigator.usb;
+
   const renderStatusBadge = () => {
     if (serialState.isReconnecting) {
       return (
-        <span className="badge badge-reconnecting">
+        <StatusLight variant="notice">
           Reconnecting...
-        </span>
+        </StatusLight>
       );
     }
     if (serialState.isConnected) {
       return (
-        <span className="badge badge-connected">
-          ● Connected ({serialState.baudRate} bps)
-        </span>
+        <StatusLight variant="positive">
+          Connected ({serialState.baudRate.toLocaleString()} bps)
+        </StatusLight>
       );
     }
-    return <span className="badge badge-disconnected">○ Disconnected</span>;
+    return <StatusLight variant="neutral">Disconnected</StatusLight>;
   };
 
-  const isWebSerialSupported = typeof navigator !== 'undefined' && !!navigator.serial;
-  const isWebUsbSupported = typeof navigator !== 'undefined' && !!navigator.usb;
-
   return (
-    <header className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', padding: '16px 24px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <div style={{ 
+    <header className={headerStyles as any}>
+      {/* Title Segment & Application Brand Icon */}
+      <div className={style({ display: 'flex', alignItems: 'center', gap: 16 }) as any}>
+        <div className={style({
           display: 'flex', 
           alignItems: 'center',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
-          borderRadius: '10px',
+          boxShadow: 'elevated',
+          borderRadius: 'lg',
           overflow: 'hidden',
-          background: 'hsl(var(--card-glass))',
-          padding: '8px',
-          border: '1px solid hsl(var(--border-glass))',
-          transition: 'transform 0.3s ease'
-        }}
-        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.04)'}
-        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1.0)'}
-        >
+          backgroundColor: 'gray-100',
+          padding: 4,
+          borderStyle: 'solid',
+          borderWidth: 1,
+          borderColor: 'gray-200',
+        }) as any}>
           <img 
             src="favicon.svg" 
             alt="ESP32 Chip Analyzer App Icon" 
-            style={{ 
-              width: '36px', 
-              height: '36px', 
-              borderRadius: '6px', 
+            className={style({ 
+              width: 32, 
+              height: 32, 
               display: 'block'
-            }} 
+            }) as any} 
           />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          <h1 style={{ 
-            fontSize: '1.45rem', 
-            margin: 0, 
-            fontWeight: 700, 
-            letterSpacing: '-0.025em',
-            background: 'linear-gradient(135deg, hsl(var(--text-primary)) 0%, hsl(var(--text-secondary)) 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            display: 'inline-block'
-          }}>
+        <div className={style({ display: 'flex', flexDirection: 'column', gap: 2 }) as any}>
+          <h1 className={appTitleStyles as any}>
             ESP32 Chip & USB Bridge Analyzer
           </h1>
-          <p style={{ fontStyle: 'normal', fontSize: '0.8rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
+          <p className={subtitleStyles as any}>
             Enterprise Diagnostics Utility &bull; Silicon Labs AN978 Customs Inspector
           </p>
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-        {/* Support badges */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {!isWebSerialSupported && (
-            <span style={{ background: 'rgba(255, 82, 82, 0.1)', color: '#ff5252', border: '1px solid rgba(255,82,82,0.2)', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px' }}>
-              No WebSerial Support
-            </span>
+      {/* Control Segment & Badges */}
+      <div className={style({ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }) as any}>
+        {/* Support status badges */}
+        <div className={style({ display: 'flex', gap: 8 }) as any}>
+          {!isWebSerialSupported ? (
+            <Badge variant="negative" fillStyle="subtle">No WebSerial</Badge>
+          ) : (
+            <Badge variant="positive" fillStyle="subtle">WebSerial Supported</Badge>
           )}
-          {!isWebUsbSupported && (
-            <span style={{ background: 'rgba(255, 82, 82, 0.1)', color: '#ff5252', border: '1px solid rgba(255,82,82,0.2)', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px' }}>
-              No WebUSB Support
-            </span>
+          {!isWebUsbSupported ? (
+            <Badge variant="negative" fillStyle="subtle">No WebUSB</Badge>
+          ) : (
+            <Badge variant="positive" fillStyle="subtle">WebUSB Supported</Badge>
           )}
         </div>
 
         {/* Network connection badge */}
-        <span style={{ 
-          background: isOnline ? 'rgba(105, 240, 174, 0.08)' : 'rgba(255, 110, 64, 0.08)', 
-          color: isOnline ? '#69f0ae' : '#ff6e40',
-          border: `1px solid ${isOnline ? 'rgba(105, 240, 174, 0.15)' : 'rgba(255, 110, 64, 0.15)'}`,
-          fontSize: '0.75rem', 
-          padding: '4px 10px', 
-          borderRadius: '20px',
-          fontWeight: 600
-        }}>
+        <Badge variant={isOnline ? 'positive' : 'notice'} fillStyle="outline">
           {isOnline ? '🌐 Online PWA' : '📡 Offline Diagnostic Active'}
-        </span>
+        </Badge>
 
+        {/* Connection status light */}
         {renderStatusBadge()}
 
-        {/* Theme Commuter Toggle Button */}
-        <button 
-          onClick={onToggleTheme} 
-          className="theme-commuter"
-          title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-        >
-          {theme === 'dark' ? '☀️' : '🌙'}
-        </button>
+        {/* Theme Commuter Toggle */}
+        <Switch isSelected={theme === 'dark'} onChange={onToggleTheme}>
+          Dark Mode
+        </Switch>
 
+        {/* Revoke Serial Port permission button */}
         {serialState.port && (
-          <button 
-            onClick={onForgetPort}
-            className="btn btn-outline btn-danger"
-            style={{ padding: '6px 12px', fontSize: '0.8rem' }}
-            title="Revoke browser permission to access this serial port"
+          <Button 
+            variant="negative" 
+            size="S" 
+            onPress={onForgetPort}
           >
-            🔒 Revoke Access
-          </button>
+            <DeleteIcon />
+            Revoke Access
+          </Button>
         )}
       </div>
     </header>

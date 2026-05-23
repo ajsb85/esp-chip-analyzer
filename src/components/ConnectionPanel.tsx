@@ -2,12 +2,35 @@ import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { serialManager } from '../services/serialManager';
 import type { SerialConnectionState } from '../services/serialManager';
+import { Picker, PickerItem } from '@react-spectrum/s2/Picker';
+import { InlineAlert, Heading, Content } from '@react-spectrum/s2/InlineAlert';
+import { style } from "@react-spectrum/s2/style" with { type: "macro" };
+import SearchIcon from '@react-spectrum/s2/icons/Search';
 
 interface ConnectionPanelProps {
   serialState: SerialConnectionState;
   onConnect: (port: SerialPort, baud: number) => void;
   onDisconnect: () => void;
 }
+
+const cardStyles = style({
+  backgroundColor: 'gray-50',
+  borderStyle: 'solid',
+  borderWidth: 1,
+  borderColor: 'gray-200',
+  borderRadius: 'lg',
+  padding: 24,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 16,
+  boxShadow: 'elevated',
+});
+
+const titleStyles = style({
+  font: 'heading-xs',
+  color: 'neutral',
+  margin: 0,
+});
 
 export const ConnectionPanel: FC<ConnectionPanelProps> = ({
   serialState,
@@ -28,10 +51,13 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
     }
   };
 
-  useEffect(() => {
+  const refreshPortTimer = () => {
     refreshPairedPorts();
-    // Set up timer to refresh paired ports list
-    const timer = setInterval(refreshPairedPorts, 3000);
+  };
+
+  useEffect(() => {
+    refreshPortTimer();
+    const timer = setInterval(refreshPortTimer, 3000);
     return () => clearInterval(timer);
   }, []);
 
@@ -39,7 +65,6 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
     const port = await serialManager.requestPort();
     if (port) {
       await refreshPairedPorts();
-      // Find the index of the newly added port
       const currentPorts = await serialManager.getPairedPorts();
       const newIndex = currentPorts.findIndex(p => p === port);
       if (newIndex !== -1) {
@@ -65,112 +90,183 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
   };
 
   return (
-    <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <h2 className="panel-title">
+    <div className={cardStyles as any}>
+      <h2 className={titleStyles as any}>
         ⚡ Port Connection
       </h2>
 
+      {/* Semantic Connection Errors */}
       {serialState.error && (
-        <div style={{
-          background: 'rgba(255, 82, 82, 0.12)',
-          border: '1px solid rgba(255, 82, 82, 0.25)',
-          borderRadius: '8px',
-          padding: '12px',
-          fontSize: '0.85rem',
-          color: '#ff5252',
-          wordBreak: 'break-word'
-        }}>
-          <strong>Connection Failure:</strong> {serialState.error}
-          {serialState.errorClass === 'Busy' && (
-            <p style={{ marginTop: '6px', fontSize: '0.78rem', opacity: 0.85 }}>
-              💡 Tip: Make sure the device is not opened in Arduino IDE, Espruino, or another browser tab.
-            </p>
-          )}
-        </div>
+        <InlineAlert variant="negative">
+          <Heading>Connection Failure</Heading>
+          <Content>
+            {serialState.error}
+            {serialState.errorClass === 'Busy' && (
+              <span className={style({ display: 'block', marginTop: 4, font: 'body-xs' }) as any}>
+                💡 Tip: Make sure the device is not open in Arduino IDE, Espruino, or another browser tab.
+              </span>
+            )}
+          </Content>
+        </InlineAlert>
       )}
 
+      {/* Reconnecting Notifications */}
       {serialState.isReconnecting && (
-        <div style={{
-          background: 'rgba(255, 215, 0, 0.08)',
-          border: '1px solid rgba(255, 215, 0, 0.2)',
-          borderRadius: '8px',
-          padding: '12px',
-          fontSize: '0.85rem',
-          color: '#ffd740'
-        }}>
-          🔄 Device disconnected. Searching matching serial interfaces to resume connection...
+        <InlineAlert variant="notice">
+          <Heading>Reconnecting</Heading>
+          <Content>
+            Device disconnected. Searching matching serial interfaces to resume connection...
+          </Content>
+        </InlineAlert>
+      )}
+
+      {/* Active Device Selector */}
+      {pairedPorts.length > 0 ? (
+        <Picker 
+          label="Active Device" 
+          value={selectedPortIndex.toString()}
+          onSelectionChange={(val) => setSelectedPortIndex(Number(val))}
+          isDisabled={serialState.isConnected}
+          styles={style({ width: '100%' }) as any}
+        >
+          {pairedPorts.map((p, idx) => (
+            <PickerItem key={idx} id={idx.toString()}>
+              {getPortDisplayName(p)}
+            </PickerItem>
+          ))}
+        </Picker>
+      ) : (
+        <div className={style({
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          padding: 12,
+          backgroundColor: { default: 'gray-100', _dark: 'gray-200' },
+          borderStyle: 'dashed',
+          borderWidth: 1,
+          borderColor: { default: 'gray-300', _dark: 'gray-400' },
+          borderRadius: 'lg',
+          alignItems: 'center',
+        }) as any}>
+          <span className={style({ font: 'body-sm', color: 'neutral-subdued' }) as any}>
+            No Authorized Ports Found
+          </span>
         </div>
       )}
 
-      <div className="form-group">
-        <label>Active Device</label>
-        {pairedPorts.length > 0 ? (
-          <select 
-            value={selectedPortIndex}
-            onChange={(e) => setSelectedPortIndex(Number(e.target.value))}
-            disabled={serialState.isConnected}
-          >
-            {pairedPorts.map((p, idx) => (
-              <option key={idx} value={idx}>
-                {getPortDisplayName(p)}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <div style={{
-            background: 'rgba(0,0,0,0.2)',
-            border: '1px solid hsl(var(--border-glass))',
-            padding: '10px 14px',
-            borderRadius: 'var(--border-radius-md)',
-            fontSize: '0.9rem',
-            color: 'hsl(var(--text-muted))',
-            textAlign: 'center'
-          }}>
-            No Authorized Ports Found
-          </div>
-        )}
-      </div>
+      {/* Select Port Trigger (Secondary Brand Blue Contrast Button) */}
+      <button 
+        onClick={handleSelectPort} 
+        disabled={serialState.isConnected}
+        className={style({
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          width: 'full',
+          paddingY: 8,
+          paddingX: 16,
+          borderStyle: 'none',
+          borderRadius: 'default',
+          fontWeight: 'bold',
+          fontSize: 'body-sm',
+          cursor: { default: 'pointer', _disabled: 'not-allowed' },
+          opacity: { default: 1, _disabled: 0.5 },
+          backgroundColor: { 
+            default: 'blue-900', 
+            _hover: 'blue-1000', 
+            _active: 'blue-1100',
+            _dark: 'blue-500',
+            _dark_hover: 'blue-400',
+            _dark_active: 'blue-300',
+            _disabled: 'gray-300'
+          },
+          color: 'white',
+          transition: 'colors'
+        }) as any}
+      >
+        <SearchIcon />
+        Select New Device
+      </button>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '10px' }}>
-        <button 
-          onClick={handleSelectPort} 
-          className="btn btn-outline"
-          disabled={serialState.isConnected}
-          style={{ width: '100%' }}
-        >
-          🔍 Select New Device
-        </button>
-      </div>
+      {/* Baud Rate selector */}
+      <Picker 
+        label="Baud Rate (bps)" 
+        value={selectedBaud.toString()}
+        onSelectionChange={(val) => setSelectedBaud(Number(val))}
+        isDisabled={serialState.isConnected}
+        styles={style({ width: '100%' }) as any}
+      >
+        {baudOptions.map(baud => (
+          <PickerItem key={baud} id={baud.toString()}>
+            {baud.toLocaleString()}
+          </PickerItem>
+        ))}
+      </Picker>
 
-      <div className="form-group">
-        <label>Baud Rate (bps)</label>
-        <select 
-          value={selectedBaud} 
-          onChange={(e) => setSelectedBaud(Number(e.target.value))}
-          disabled={serialState.isConnected}
-        >
-          {baudOptions.map(baud => (
-            <option key={baud} value={baud}>
-              {baud}
-            </option>
-          ))}
-        </select>
-      </div>
-
+      {/* Connection Buttons (Primary Corporate Red buttons) */}
       {!serialState.isConnected ? (
         <button 
           onClick={handleConnectClick} 
-          className="btn btn-cyan glow-pulse"
           disabled={pairedPorts.length === 0}
-          style={{ width: '100%', marginTop: '8px' }}
+          className={style({
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            width: 'full',
+            paddingY: 12,
+            paddingX: 16,
+            borderStyle: 'none',
+            borderRadius: 'default',
+            fontWeight: 'bold',
+            fontSize: 'body-sm',
+            cursor: { default: 'pointer', _disabled: 'not-allowed' },
+            opacity: { default: 1, _disabled: 0.5 },
+            backgroundColor: { 
+              default: 'red-900', 
+              _hover: 'red-1000', 
+              _active: 'red-1100',
+              _dark: 'red-600',
+              _dark_hover: 'red-500',
+              _dark_active: 'red-400',
+              _disabled: 'gray-300'
+            },
+            color: 'white',
+            transition: 'colors',
+            marginTop: 8
+          }) as any}
         >
           🔌 Connect Analyzer
         </button>
       ) : (
         <button 
           onClick={onDisconnect} 
-          className="btn btn-danger"
-          style={{ width: '100%', marginTop: '8px' }}
+          className={style({
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            width: 'full',
+            paddingY: 12,
+            paddingX: 16,
+            borderStyle: 'none',
+            borderRadius: 'default',
+            fontWeight: 'bold',
+            fontSize: 'body-sm',
+            cursor: 'pointer',
+            backgroundColor: { 
+              default: 'red-900', 
+              _hover: 'red-1000', 
+              _active: 'red-1100',
+              _dark: 'red-600',
+              _dark_hover: 'red-500',
+              _dark_active: 'red-400'
+            },
+            color: 'white',
+            transition: 'colors',
+            marginTop: 8
+          }) as any}
         >
           🔌 Disconnect Analyzer
         </button>

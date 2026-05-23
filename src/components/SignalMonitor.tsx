@@ -1,10 +1,79 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import type { SerialConnectionState } from '../services/serialManager';
+import { Switch } from '@react-spectrum/s2/Switch';
+import { StatusLight } from '@react-spectrum/s2/StatusLight';
+import { InlineAlert, Heading, Content } from '@react-spectrum/s2/InlineAlert';
+import { style } from "@react-spectrum/s2/style" with { type: "macro" };
 
 interface SignalMonitorProps {
   serialState: SerialConnectionState;
 }
+
+const cardStyles = style({
+  backgroundColor: 'gray-50',
+  borderStyle: 'solid',
+  borderWidth: 1,
+  borderColor: 'gray-200',
+  borderRadius: 'lg',
+  padding: 24,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 16,
+  boxShadow: 'elevated',
+});
+
+const titleStyles = style({
+  font: 'heading-xs',
+  color: 'neutral',
+  margin: 0,
+});
+
+const sectionLabelStyles = style({
+  font: 'body-sm',
+  fontWeight: 'bold',
+  color: 'neutral',
+  marginBottom: 8,
+  display: 'block',
+});
+
+const signalCardStyles = style({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: 12,
+  backgroundColor: {
+    default: 'blue-100',
+    _dark: 'blue-1200'
+  },
+  borderRadius: 'lg',
+  borderStyle: 'solid',
+  borderWidth: 1,
+  borderColor: 'gray-200',
+});
+
+const signalLabelStyles = style({
+  font: 'body-sm',
+  fontWeight: 'bold',
+  color: {
+    default: 'gray-900',
+    _dark: 'gray-1000'
+  },
+});
+
+const signalSubStyles = style({
+  font: 'body-xs',
+  color: 'neutral-subdued',
+});
+
+const signalGridStyles = style({
+  display: 'grid',
+  gridTemplateColumns: {
+    default: '1fr',
+    md: '1fr 1fr',
+  },
+  gap: 12,
+});
 
 export const SignalMonitor: FC<SignalMonitorProps> = ({ serialState }) => {
   // Input signals
@@ -46,13 +115,12 @@ export const SignalMonitor: FC<SignalMonitorProps> = ({ serialState }) => {
         });
         setSupported(true);
       } catch (err) {
-        // Some simple USB-CDC drivers or physical virtual COM ports do not support handshaking lines
         setSupported(false);
       }
     };
 
     pollSignals();
-    const interval = setInterval(pollSignals, 150); // Polling every 150ms
+    const interval = setInterval(pollSignals, 150);
 
     return () => {
       isActive = false;
@@ -78,108 +146,102 @@ export const SignalMonitor: FC<SignalMonitorProps> = ({ serialState }) => {
   };
 
   return (
-    <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <h2 className="panel-title">
+    <div className={cardStyles as any}>
+      <h2 className={titleStyles as any}>
         🔌 RS232 DB9 Signals
       </h2>
 
       {!serialState.isConnected ? (
-        <div style={{
+        <div className={style({
           textAlign: 'center',
-          color: 'hsl(var(--text-muted))',
-          fontSize: '0.9rem',
-          padding: '20px 0'
-        }}>
+          color: 'neutral-subdued',
+          font: 'body-sm',
+          padding: 24,
+        }) as any}>
           Connect device to monitor signal states.
         </div>
       ) : !supported ? (
-        <div style={{
-          textAlign: 'center',
-          color: 'hsl(var(--warning-orange))',
-          fontSize: '0.85rem',
-          background: 'rgba(255, 215, 0, 0.05)',
-          border: '1px dashed rgba(255,215,0,0.15)',
-          padding: '12px',
-          borderRadius: '8px'
-        }}>
-          ⚠️ Handshake signals are not supported or blocked by the USB converter firmware.
-        </div>
+        <InlineAlert variant="notice">
+          <Heading>Handshake Signals Unsupported</Heading>
+          <Content>
+            Handshake signals are not supported or blocked by the USB converter firmware.
+          </Content>
+        </InlineAlert>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className={style({ display: 'flex', flexDirection: 'column', gap: 20 }) as any}>
+          {/* Writeable Outputs */}
           <div>
-            <label style={{ marginBottom: '8px', display: 'block' }}>Output Pins (Writeable)</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div className="switch-group">
-                <span style={{ fontSize: '0.9rem', fontFamily: 'var(--font-mono)' }}>DTR (Data Terminal Ready)</span>
-                <label className="switch">
-                  <input 
-                    type="checkbox" 
-                    checked={outputs.dtr}
-                    onChange={(e) => handleToggleOutput('dtr', e.target.checked)}
-                  />
-                  <span className="slider"></span>
-                </label>
-              </div>
+            <span className={sectionLabelStyles as any}>Output Pins (Writeable)</span>
+            <div className={style({ display: 'flex', flexDirection: 'column', gap: 8 }) as any}>
+              <Switch 
+                isSelected={outputs.dtr} 
+                onChange={(checked) => handleToggleOutput('dtr', checked)}
+              >
+                DTR (Data Terminal Ready)
+              </Switch>
 
-              <div className="switch-group">
-                <span style={{ fontSize: '0.9rem', fontFamily: 'var(--font-mono)' }}>RTS (Request To Send)</span>
-                <label className="switch">
-                  <input 
-                    type="checkbox" 
-                    checked={outputs.rts}
-                    onChange={(e) => handleToggleOutput('rts', e.target.checked)}
-                  />
-                  <span className="slider"></span>
-                </label>
-              </div>
+              <Switch 
+                isSelected={outputs.rts} 
+                onChange={(checked) => handleToggleOutput('rts', checked)}
+              >
+                RTS (Request To Send)
+              </Switch>
 
-              <div className="switch-group">
-                <span style={{ fontSize: '0.9rem', fontFamily: 'var(--font-mono)' }}>BREAK (TX Line Toggle)</span>
-                <label className="switch">
-                  <input 
-                    type="checkbox" 
-                    checked={outputs.brk}
-                    onChange={(e) => handleToggleOutput('brk', e.target.checked)}
-                  />
-                  <span className="slider"></span>
-                </label>
-              </div>
+              <Switch 
+                isSelected={outputs.brk} 
+                onChange={(checked) => handleToggleOutput('brk', checked)}
+              >
+                BREAK (TX Line Toggle)
+              </Switch>
             </div>
           </div>
 
-          <div style={{ marginTop: '4px' }}>
-            <label style={{ marginBottom: '8px', display: 'block' }}>Input Pins (Read-Only Status)</label>
-            <div className="signal-grid">
-              <div className="signal-card">
+          {/* Read-only Inputs */}
+          <div>
+            <span className={sectionLabelStyles as any}>Input Pins (Read-Only Status)</span>
+            <div className={signalGridStyles as any}>
+              {/* CTS */}
+              <div className={signalCardStyles as any}>
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>CTS</div>
-                  <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Clear To Send</div>
+                  <div className={signalLabelStyles as any}>CTS</div>
+                  <div className={signalSubStyles as any}>Clear To Send</div>
                 </div>
-                <div className={`led-indicator ${inputs.cts ? 'high' : 'low'}`}></div>
+                <StatusLight variant={inputs.cts ? 'positive' : 'neutral'}>
+                  {inputs.cts ? 'HIGH' : 'LOW'}
+                </StatusLight>
               </div>
 
-              <div className="signal-card">
+              {/* DSR */}
+              <div className={signalCardStyles as any}>
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>DSR</div>
-                  <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Data Set Ready</div>
+                  <div className={signalLabelStyles as any}>DSR</div>
+                  <div className={signalSubStyles as any}>Data Set Ready</div>
                 </div>
-                <div className={`led-indicator ${inputs.dsr ? 'high' : 'low'}`}></div>
+                <StatusLight variant={inputs.dsr ? 'positive' : 'neutral'}>
+                  {inputs.dsr ? 'HIGH' : 'LOW'}
+                </StatusLight>
               </div>
 
-              <div className="signal-card">
+              {/* DCD */}
+              <div className={signalCardStyles as any}>
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>DCD</div>
-                  <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Carrier Detect</div>
+                  <div className={signalLabelStyles as any}>DCD</div>
+                  <div className={signalSubStyles as any}>Carrier Detect</div>
                 </div>
-                <div className={`led-indicator ${inputs.dcd ? 'high' : 'low'}`}></div>
+                <StatusLight variant={inputs.dcd ? 'positive' : 'neutral'}>
+                  {inputs.dcd ? 'HIGH' : 'LOW'}
+                </StatusLight>
               </div>
 
-              <div className="signal-card">
+              {/* RI */}
+              <div className={signalCardStyles as any}>
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>RI</div>
-                  <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Ring Indicator</div>
+                  <div className={signalLabelStyles as any}>RI</div>
+                  <div className={signalSubStyles as any}>Ring Indicator</div>
                 </div>
-                <div className={`led-indicator ${inputs.ri ? 'high' : 'low'}`}></div>
+                <StatusLight variant={inputs.ri ? 'positive' : 'neutral'}>
+                  {inputs.ri ? 'HIGH' : 'LOW'}
+                </StatusLight>
               </div>
             </div>
           </div>

@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 import type { SerialConnectionState } from '../services/serialManager';
+import { Button } from '@react-spectrum/s2/Button';
+import { Picker, PickerItem } from '@react-spectrum/s2/Picker';
+import { TextField } from '@react-spectrum/s2/TextField';
+import { style } from "@react-spectrum/s2/style" with { type: "macro" };
+import DownloadIcon from '@react-spectrum/s2/icons/Download';
+import DeleteIcon from '@react-spectrum/s2/icons/Delete';
 
 interface ConsoleTerminalProps {
   serialState: SerialConnectionState;
@@ -14,6 +20,89 @@ interface LogLine {
   type: 'info' | 'warning' | 'error' | 'debug' | 'system' | 'raw';
   timestamp: string;
 }
+
+const cardStyles = style({
+  backgroundColor: 'gray-50',
+  borderStyle: 'solid',
+  borderWidth: 1,
+  borderColor: 'gray-200',
+  borderRadius: 'lg',
+  padding: 24,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 16,
+  boxShadow: 'elevated',
+});
+
+const titleStyles = style({
+  font: 'heading-xs',
+  color: 'neutral',
+  margin: 0,
+});
+
+const terminalWrapperStyles = style({
+  display: 'flex',
+  flexDirection: 'column',
+  borderRadius: 'lg',
+  overflow: 'hidden',
+  borderStyle: 'solid',
+  borderWidth: 1,
+  borderColor: 'gray-300',
+  boxShadow: 'elevated',
+});
+
+const terminalHeaderStyles = style({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  backgroundColor: 'gray-100',
+  paddingX: 16,
+  paddingY: 8,
+  font: 'body-xs',
+  fontWeight: 'bold',
+  color: 'neutral-subdued',
+  borderBottomStyle: 'solid',
+  borderBottomWidth: 1,
+  borderBottomColor: 'gray-200',
+});
+
+const screenStyles = style({
+  backgroundColor: 'gray-900',
+  fontFamily: 'code',
+  font: 'body-xs',
+  padding: 16,
+  height: 350,
+  overflowY: 'auto',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 4,
+});
+
+const lineTimeStyles = style({
+  color: 'gray-500',
+  marginRight: 8,
+  font: 'body-xs',
+  fontFamily: 'code',
+  userSelect: 'none',
+});
+
+const errorLineStyles = style({ color: 'red-500', fontFamily: 'code' });
+const warningLineStyles = style({ color: 'orange-500', fontFamily: 'code' });
+const infoLineStyles = style({ color: 'green-500', fontFamily: 'code' });
+const debugLineStyles = style({ color: 'purple-500', fontFamily: 'code' });
+const systemLineStyles = style({ color: 'blue-500', fontFamily: 'code', fontWeight: 'bold' });
+const defaultLineStyles = style({ color: 'gray-300', fontFamily: 'code' });
+
+const getLineStyles = (type: LogLine['type']) => {
+  switch (type) {
+    case 'error': return errorLineStyles;
+    case 'warning': return warningLineStyles;
+    case 'info': return infoLineStyles;
+    case 'debug': return debugLineStyles;
+    case 'system': return systemLineStyles;
+    default: return defaultLineStyles;
+  }
+};
 
 const IDF_LOG_REGEX = /^(I|W|E|D|V) \([\d.: -]+\)\s+(.*)$/;
 
@@ -45,12 +134,11 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
     bufferRef.current += decoded;
 
     const lines = bufferRef.current.split(/\r?\n/);
-    // Keep the last incomplete fragment in the buffer
     bufferRef.current = lines.pop() || '';
 
     if (lines.length > 0) {
       const parsedLines = lines.map(line => {
-        const cleaned = line.replace(/\x1b\[[0-9;]*m/g, ''); // strip ansi codes for regex matching
+        const cleaned = line.replace(/\x1b\[[0-9;]*m/g, ''); // strip ansi codes
         const match = cleaned.match(IDF_LOG_REGEX);
         let type: LogLine['type'] = 'raw';
         
@@ -71,7 +159,7 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
         };
       });
 
-      setLogLines(prev => [...prev, ...parsedLines].slice(-1500)); // Cap at 1500 lines for layout speed
+      setLogLines(prev => [...prev, ...parsedLines].slice(-1500));
     }
   }, [receivedData]);
 
@@ -82,12 +170,6 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
     }
   }, [logLines]);
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSend();
-    }
-  };
-
   const handleSend = () => {
     if (!inputVal) return;
     let suffix = '';
@@ -97,7 +179,7 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
     
     onSendData(inputVal + suffix);
 
-    // Append standard user echo line to terminal
+    // Append user echo line to terminal
     setLogLines(prev => [...prev, {
       text: `> ${inputVal}`,
       type: 'system',
@@ -127,75 +209,79 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
     return true;
   });
 
-  const getLineClass = (type: LogLine['type']) => {
-    switch (type) {
-      case 'error': return 'terminal-line error';
-      case 'warning': return 'terminal-line warning';
-      case 'info': return 'terminal-line info';
-      case 'debug': return 'terminal-line debug';
-      case 'system': return 'terminal-line system';
-      default: return 'terminal-line';
-    }
-  };
-
   return (
-    <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <h2 className="panel-title" style={{ marginBottom: 0 }}>
+    <div className={cardStyles as any}>
+      <div className={style({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }) as any}>
+        <h2 className={titleStyles as any}>
           📺 Bidirectional Serial Console
         </h2>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+        {/* Toolbar controls */}
+        <div className={style({ display: 'flex', gap: 8, alignItems: 'end', flexWrap: 'wrap' }) as any}>
           {/* Level Filter */}
-          <select 
-            value={filterLevel}
-            onChange={(e) => setFilterLevel(e.target.value as any)}
-            style={{ width: 'auto', padding: '6px 10px', fontSize: '0.8rem' }}
+          <Picker 
+            label="Log Level" 
+            value={filterLevel} 
+            onSelectionChange={(val) => setFilterLevel(val as any)}
+            size="S"
           >
-            <option value="all">🔍 Show All Raw</option>
-            <option value="debug">⚙️ Verbose [D]</option>
-            <option value="info">🟢 Info [I] + Above</option>
-            <option value="warning">🟡 Warning [W] + Above</option>
-            <option value="error">🔴 Errors Only [E]</option>
-          </select>
+            <PickerItem id="all">Show All Raw</PickerItem>
+            <PickerItem id="debug">Verbose [D]</PickerItem>
+            <PickerItem id="info">Info [I] + Above</PickerItem>
+            <PickerItem id="warning">Warning [W] + Above</PickerItem>
+            <PickerItem id="error">Errors Only [E]</PickerItem>
+          </Picker>
 
           {/* EOL Selector */}
-          <select 
-            value={eol}
-            onChange={(e) => setEol(e.target.value as any)}
-            style={{ width: 'auto', padding: '6px 10px', fontSize: '0.8rem' }}
-            title="End of line terminator appended to commands"
+          <Picker 
+            label="EOL Terminator" 
+            value={eol} 
+            onSelectionChange={(val) => setEol(val as any)}
+            size="S"
           >
-            <option value="lf">Line Feed (\n)</option>
-            <option value="crlf">Carriage Return + LF (\r\n)</option>
-            <option value="cr">Carriage Return (\r)</option>
-            <option value="none">No Terminator</option>
-          </select>
+            <PickerItem id="lf">Line Feed (\n)</PickerItem>
+            <PickerItem id="crlf">Carriage Return + LF (\r\n)</PickerItem>
+            <PickerItem id="cr">Carriage Return (\r)</PickerItem>
+            <PickerItem id="none">No Terminator</PickerItem>
+          </Picker>
 
-          <button onClick={handleDownloadLog} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem' }} disabled={logLines.length === 0}>
-            💾 Export Log
-          </button>
-          <button onClick={onClearLogs} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-            🗑️ Clear
-          </button>
+          <Button 
+            variant="secondary" 
+            size="S" 
+            onPress={handleDownloadLog} 
+            isDisabled={logLines.length === 0}
+          >
+            <DownloadIcon />
+            Export Log
+          </Button>
+
+          <Button 
+            variant="secondary" 
+            size="S" 
+            onPress={onClearLogs}
+          >
+            <DeleteIcon />
+            Clear
+          </Button>
         </div>
       </div>
 
-      <div className="terminal-wrapper">
-        <div className="terminal-header">
+      {/* Scrollable screen */}
+      <div className={terminalWrapperStyles as any}>
+        <div className={terminalHeaderStyles as any}>
           <span>COM PORT MONITOR</span>
-          <span>{filteredLines.length} lines shown</span>
+          <span>{filteredLines.length.toLocaleString()} lines shown</span>
         </div>
         
-        <div className="terminal-screen" ref={screenRef}>
+        <div className={screenStyles as any} ref={screenRef}>
           {filteredLines.length === 0 ? (
-            <div style={{ margin: 'auto', color: 'hsl(var(--text-muted))', fontSize: '0.85rem', fontFamily: 'var(--font-sans)', textAlign: 'center' }}>
+            <div className={style({ margin: 'auto', color: 'neutral-subdued', font: 'body-sm', textAlign: 'center' }) as any}>
               📟 Console Idle. Ready to receive serial stream...
             </div>
           ) : (
             filteredLines.map((line, idx) => (
-              <div key={idx} className={getLineClass(line.type)}>
-                <span style={{ color: 'hsl(var(--text-muted))', marginRight: '8px', fontSize: '0.75rem', userSelect: 'none' }}>
+              <div key={idx} className={getLineStyles(line.type) as any}>
+                <span className={lineTimeStyles as any}>
                   [{line.timestamp}]
                 </span>
                 {line.text}
@@ -204,24 +290,39 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
           )}
         </div>
 
-        <div className="terminal-input-bar">
-          <input 
-            type="text" 
+        {/* Command bar input form */}
+        <form 
+          onSubmit={(e) => { e.preventDefault(); handleSend(); }} 
+          className={style({
+            display: 'flex',
+            backgroundColor: 'gray-100',
+            borderTopStyle: 'solid',
+            borderTopWidth: 1,
+            borderTopColor: 'gray-300',
+          }) as any}
+        >
+          <TextField 
             placeholder={serialState.isConnected ? "Type command here and press Enter to send..." : "Console offline. Connect port to send data."}
             value={inputVal}
-            onChange={(e) => setInputVal(e.target.value)}
-            onKeyDown={handleKeyPress}
-            disabled={!serialState.isConnected}
+            onChange={setInputVal}
+            isDisabled={!serialState.isConnected}
+            aria-label="Serial command input"
+            styles={style({ 
+              flexGrow: 1, 
+              borderWidth: 0,
+              borderRadius: 'none',
+              backgroundColor: 'transparent'
+            }) as any}
           />
-          <button 
-            onClick={handleSend} 
-            className="btn btn-cyan" 
-            disabled={!serialState.isConnected || !inputVal}
-            style={{ borderRadius: 0, padding: '0 24px' }}
+          <Button 
+            variant="accent" 
+            type="submit"
+            isDisabled={!serialState.isConnected || !inputVal}
+            styles={style({ borderRadius: 'none' }) as any}
           >
-            Send ➜
-          </button>
-        </div>
+            Send
+          </Button>
+        </form>
       </div>
     </div>
   );

@@ -3,10 +3,63 @@ import type { FC } from 'react';
 import type { SerialConnectionState } from '../services/serialManager';
 import { espDiagnostics } from '../services/espDiagnostics';
 import type { EspChipDetails } from '../services/espDiagnostics';
+import { Button } from '@react-spectrum/s2/Button';
+import { Badge } from '@react-spectrum/s2/Badge';
+import { ProgressCircle } from '@react-spectrum/s2/ProgressCircle';
+import { style } from "@react-spectrum/s2/style" with { type: "macro" };
+import RefreshIcon from '@react-spectrum/s2/icons/Refresh';
+import PlayIcon from '@react-spectrum/s2/icons/Play';
 
 interface EspChipCardProps {
   serialState: SerialConnectionState;
 }
+
+const cardStyles = style({
+  backgroundColor: 'gray-50',
+  borderStyle: 'solid',
+  borderWidth: 1,
+  borderColor: 'gray-200',
+  borderRadius: 'lg',
+  padding: 24,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 16,
+  boxShadow: 'elevated',
+});
+
+const titleStyles = style({
+  font: 'heading-xs',
+  color: 'neutral',
+  margin: 0,
+});
+
+const metaListStyles = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 2,
+});
+
+const metaItemStyles = style({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  paddingY: 8,
+  borderBottomStyle: 'solid',
+  borderBottomWidth: 1,
+  borderBottomColor: 'gray-200',
+});
+
+const metaLabelStyles = style({
+  font: 'body-sm',
+  fontWeight: 'bold',
+  color: 'neutral-subdued',
+});
+
+const metaValueStyles = style({
+  font: 'body-sm',
+  color: 'neutral',
+  fontWeight: 'medium',
+});
 
 export const EspChipCard: FC<EspChipCardProps> = ({ serialState }) => {
   const [chipDetails, setChipDetails] = useState<EspChipDetails | null>(null);
@@ -18,7 +71,6 @@ export const EspChipCard: FC<EspChipCardProps> = ({ serialState }) => {
     setLoading(true);
     setProgressMsg('Synchronizing with bootloader...');
     
-    // We execute diagnostics. Note: this will temporarily sync and put the chip in stub/ROM mode
     const details = await espDiagnostics.analyzeChip(
       serialState.port,
       serialState.baudRate,
@@ -45,11 +97,16 @@ export const EspChipCard: FC<EspChipCardProps> = ({ serialState }) => {
 
   if (!serialState.isConnected) {
     return (
-      <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <h2 className="panel-title">
+      <div className={cardStyles as any}>
+        <h2 className={titleStyles as any}>
           🔬 Espressif Chip Diagnostics
         </h2>
-        <div style={{ textAlign: 'center', color: 'hsl(var(--text-muted))', fontSize: '0.9rem', padding: '20px 0' }}>
+        <div className={style({
+          textAlign: 'center',
+          color: 'neutral-subdued',
+          font: 'body-sm',
+          padding: 24,
+        }) as any}>
           Connect a serial bridge to perform chip eFuse diagnostics.
         </div>
       </div>
@@ -57,184 +114,191 @@ export const EspChipCard: FC<EspChipCardProps> = ({ serialState }) => {
   }
 
   return (
-    <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 className="panel-title" style={{ marginBottom: 0 }}>
+    <div className={cardStyles as any}>
+      <div className={style({ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }) as any}>
+        <h2 className={titleStyles as any}>
           🔬 Espressif Chip Diagnostics
         </h2>
         {chipDetails && (
-          <button 
-            onClick={handleClear}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'hsl(var(--text-muted))',
-              cursor: 'pointer',
-              fontSize: '0.8rem'
-            }}
+          <Button 
+            variant="secondary" 
+            size="S" 
+            onPress={handleClear}
           >
             Clear Scan
-          </button>
+          </Button>
         )}
       </div>
 
+      {/* scan prompt state */}
       {!chipDetails && !loading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'center', padding: '16px 0' }}>
-          <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>
-            Toggle DTR/RTS auto-reset signals to synchronize with bootloader and read internal ROM registers.
+        <div className={style({ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'center', paddingY: 8 }) as any}>
+          <p className={style({ font: 'body-sm', color: 'neutral-subdued', margin: 0 }) as any}>
+            Toggle DTR/RTS auto-reset signals to synchronize with the chip's internal bootloader ROM and extract eFuse registers.
           </p>
-          <button 
-            onClick={handleAnalyzeChip}
-            className="btn btn-cyan"
-            style={{ alignSelf: 'center' }}
+          <Button 
+            variant="accent" 
+            onPress={handleAnalyzeChip}
+            styles={style({ alignSelf: 'center' }) as any}
           >
-            🔍 Run Chip eFuse Scan
-          </button>
-          <p style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>
-            ⚠️ This will temporarily halt any firmware currently running on the ESP.
+            <PlayIcon />
+            Run Chip eFuse Scan
+          </Button>
+          <p className={style({ font: 'body-xs', color: 'neutral-subdued', margin: 0 }) as any}>
+            ⚠️ This will temporarily halt any firmware currently executing on the ESP.
           </p>
         </div>
       )}
 
+      {/* loading handshake progress */}
       {loading && (
-        <div style={{
+        <div className={style({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '12px',
-          padding: '20px 0',
+          gap: 12,
+          paddingY: 16,
           textAlign: 'center'
-        }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            border: '3px solid hsla(var(--primary-cyan), 0.1)',
-            borderTop: '3px solid hsl(var(--primary-cyan))',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }}></div>
-          <div style={{ fontSize: '0.85rem', fontWeight: 500, color: 'hsl(var(--primary-cyan))' }}>
+        }) as any}>
+          <ProgressCircle size="L" isIndeterminate aria-label="Querying Espressif silicon registers" />
+          <span className={style({ font: 'body-sm', fontWeight: 'bold', color: 'accent' }) as any}>
             Diagnostic Pipeline Running...
-          </div>
-          <div style={{ 
-            fontSize: '0.78rem', 
-            fontFamily: 'var(--font-mono)', 
-            color: 'hsl(var(--text-muted))',
-            background: 'rgba(0,0,0,0.3)',
-            padding: '8px 12px',
-            borderRadius: '6px',
+          </span>
+          <div className={style({ 
+            font: 'body-xs', 
+            fontFamily: 'code', 
+            color: 'neutral-subdued',
+            backgroundColor: 'gray-100',
+            paddingX: 12,
+            paddingY: 8,
+            borderRadius: 'sm',
             width: '100%',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap'
-          }}>
+          }) as any}>
             {progressMsg}
           </div>
-          <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
         </div>
       )}
 
+      {/* diagnostic results display */}
       {chipDetails && !loading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div className="meta-list">
-            <div className="meta-item">
-              <span className="meta-label">Chip Family</span>
-              <span className="meta-value highlight" style={{ color: 'hsl(var(--accent-purple))' }}>{chipDetails.chipName}</span>
+        <div className={style({ display: 'flex', flexDirection: 'column', gap: 16 }) as any}>
+          <div className={metaListStyles as any}>
+            <div className={metaItemStyles as any}>
+              <span className={metaLabelStyles as any}>Chip Family</span>
+              <span className={style({
+                font: 'body-sm',
+                fontWeight: 'bold',
+                color: 'accent'
+              }) as any}>{chipDetails.chipName}</span>
             </div>
 
-            <div className="meta-item">
-              <span className="meta-label">MAC Address</span>
-              <span className="meta-value" style={{ textTransform: 'uppercase' }}>{chipDetails.macAddress}</span>
+            <div className={metaItemStyles as any}>
+              <span className={metaLabelStyles as any}>MAC Address (eFuse)</span>
+              <span className={style({
+                font: 'body-sm',
+                fontFamily: 'code',
+                textTransform: 'uppercase',
+                color: 'neutral'
+              }) as any}>{chipDetails.macAddress}</span>
             </div>
 
-            <div className="meta-item">
-              <span className="meta-label">Crystal Speed</span>
-              <span className="meta-value">{chipDetails.crystalFreq}</span>
+            <div className={metaItemStyles as any}>
+              <span className={metaLabelStyles as any}>Crystal Frequency</span>
+              <span className={metaValueStyles as any}>{chipDetails.crystalFreq}</span>
             </div>
 
-            <div className="meta-item">
-              <span className="meta-label">SPI Flash Size</span>
-              <span className="meta-value">{chipDetails.flashSize}</span>
+            <div className={metaItemStyles as any}>
+              <span className={metaLabelStyles as any}>SPI Flash Size (Auto)</span>
+              <span className={metaValueStyles as any}>{chipDetails.flashSize}</span>
             </div>
 
-            <div className="meta-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '6px', borderBottom: 'none' }}>
-              <span className="meta-label">Features Map</span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px', width: '100%' }}>
+            {/* features list badges */}
+            <div className={style({
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              paddingY: 8,
+              borderBottomStyle: 'solid',
+              borderBottomWidth: 1,
+              borderBottomColor: 'gray-200'
+            }) as any}>
+              <span className={metaLabelStyles as any}>Silicon Features Map</span>
+              <div className={style({ display: 'flex', flexWrap: 'wrap', gap: 8, width: '100%' }) as any}>
                 {chipDetails.features.length > 0 ? (
                   chipDetails.features.map((feat, idx) => (
-                    <span key={idx} style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      background: 'rgba(127, 0, 255, 0.1)',
-                      border: '1px solid rgba(127, 0, 255, 0.25)',
-                      color: '#b366ff',
-                      padding: '2px 8px',
-                      borderRadius: '4px'
-                    }}>
+                    <Badge key={idx} variant="informative" fillStyle="subtle">
                       {feat}
-                    </span>
+                    </Badge>
                   ))
                 ) : (
-                  <span style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', fontStyle: 'italic' }}>
+                  <span className={style({ font: 'body-sm', color: 'neutral-subdued', fontStyle: 'italic' }) as any}>
                     No special feature registers declared in eFuse.
                   </span>
                 )}
               </div>
             </div>
 
+            {/* Revision Description */}
             {chipDetails.description && (
-              <div className="meta-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '4px', borderBottom: 'none', paddingTop: '10px' }}>
-                <span className="meta-label">Revision Description</span>
-                <p style={{ 
-                  fontSize: '0.8rem', 
-                  color: 'hsl(var(--text-secondary))', 
-                  lineHeight: '1.45', 
-                  background: 'rgba(0,0,0,0.15)',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  width: '100%'
-                }}>
+              <div className={style({
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                paddingY: 8
+              }) as any}>
+                <span className={metaLabelStyles as any}>Revision Description</span>
+                <p className={style({ 
+                  font: 'body-sm', 
+                  color: 'neutral-subdued', 
+                  lineHeight: 'body', 
+                  backgroundColor: 'gray-100',
+                  paddingX: 12,
+                  paddingY: 8,
+                  borderRadius: 'lg',
+                  width: '100%',
+                  margin: 0
+                }) as any}>
                   {chipDetails.description}
                 </p>
               </div>
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
-            <button 
-              onClick={handleHardReset}
-              className="btn btn-outline"
-              style={{ flex: 1, padding: '10px' }}
-              title="Issue classic RTS/DTR toggle to reboot chip into firmware"
+          {/* Reset Action Buttons */}
+          <div className={style({ display: 'flex', gap: 12 }) as any}>
+            <Button 
+              variant="secondary" 
+              onPress={handleHardReset}
+              styles={style({ flex: 1 }) as any}
             >
               🔄 Hard Reset Chip
-            </button>
-            <button 
-              onClick={handleAnalyzeChip}
-              className="btn btn-cyan"
-              style={{ flex: 1, padding: '10px' }}
+            </Button>
+            <Button 
+              variant="accent" 
+              onPress={handleAnalyzeChip}
+              styles={style({ flex: 1 }) as any}
             >
-              🔄 Rescan eFuse
-            </button>
+              <RefreshIcon />
+              Rescan eFuse
+            </Button>
           </div>
         </div>
       )}
 
+      {/* standby debug messages */}
       {progressMsg && !loading && !chipDetails && (
-        <div style={{ 
-          fontSize: '0.78rem', 
-          fontFamily: 'var(--font-mono)', 
-          color: 'hsl(var(--text-muted))', 
-          background: 'rgba(0,0,0,0.2)', 
-          padding: '8px', 
-          borderRadius: '4px',
+        <div className={style({ 
+          font: 'body-xs', 
+          fontFamily: 'code', 
+          color: 'neutral-subdued', 
+          backgroundColor: 'gray-100', 
+          padding: 8, 
+          borderRadius: 'sm',
           wordBreak: 'break-all'
-        }}>
+        }) as any}>
           {progressMsg}
         </div>
       )}

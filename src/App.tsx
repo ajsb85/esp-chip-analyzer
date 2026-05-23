@@ -8,10 +8,92 @@ import { SignalMonitor } from './components/SignalMonitor';
 import { UsbConverterCard } from './components/UsbConverterCard';
 import { EspChipCard } from './components/EspChipCard';
 import { ConsoleTerminal } from './components/ConsoleTerminal';
+import { style } from "@react-spectrum/s2/style" with { type: "macro" };
+import { Provider } from '@react-spectrum/s2/Provider';
+
+const appContainerStyles = style({
+  maxWidth: 1200,
+  marginX: 'auto',
+  padding: 24,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 24,
+  minHeight: '100vh',
+  backgroundColor: {
+    default: 'gray-50',
+    _dark: 'gray-100'
+  },
+  color: {
+    default: 'gray-900',
+    _dark: 'gray-1000'
+  }
+});
+
+const gridStyles = style({
+  display: 'flex',
+  flexDirection: {
+    default: 'column',
+    lg: 'row',
+  },
+  gap: 24,
+  alignItems: 'start',
+});
+
+const leftColumnStyles = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 24,
+  width: {
+    default: '100%',
+    lg: 350, // 350px width, perfect for left diagnostics column
+  },
+  flexShrink: 0,
+});
+
+const rightColumnStyles = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 16,
+  flexGrow: 1,
+  width: '100%',
+});
+
+const tabListStyles = style({
+  display: 'flex',
+  borderBottomStyle: 'solid',
+  borderBottomWidth: 1,
+  borderBottomColor: 'gray-200',
+  gap: 8,
+  marginBottom: 8,
+});
+
+const tabButtonStyles = style({
+  font: 'body-sm',
+  fontWeight: 'bold',
+  paddingY: 12,
+  paddingX: 16,
+  cursor: 'pointer',
+  backgroundColor: 'transparent',
+  borderStyle: 'none',
+  borderBottomStyle: 'solid',
+  borderBottomWidth: 2,
+  borderBottomColor: 'transparent',
+  color: {
+    default: 'neutral-subdued',
+    _hover: 'neutral',
+  },
+  transition: 'colors',
+});
+
+const activeTabButtonStyles = style({
+  color: 'accent',
+  borderBottomColor: 'accent',
+});
 
 function App() {
   const [serialState, setSerialState] = useState<SerialConnectionState>(serialManager.getState());
   const [receivedData, setReceivedData] = useState<Uint8Array[]>([]);
+  const [activeTab, setActiveTab] = useState<'terminal' | 'diagnostics' | 'signals'>('terminal');
   const [isOnline, setIsOnline] = useState<boolean>(typeof window !== 'undefined' ? window.navigator.onLine : true);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('theme');
@@ -72,11 +154,9 @@ function App() {
     await serialManager.connect(
       port,
       baud,
-      // Data callback
       (chunk) => {
         setReceivedData((prev) => [...prev, chunk]);
       },
-      // Disconnect callback
       () => {
         console.log('[SERIAL] Disconnection occurred.');
       }
@@ -115,54 +195,86 @@ function App() {
   };
 
   return (
-    <div className="app-container">
-      {/* Top Header Card */}
-      <DashboardHeader 
-        serialState={serialState} 
-        isOnline={isOnline}
-        theme={theme}
-        onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
-        onForgetPort={handleForgetPort}
-      />
+    <Provider colorScheme={theme}>
+      <div className={appContainerStyles as any}>
+        {/* Top Header Card */}
+        <DashboardHeader 
+          serialState={serialState} 
+          isOnline={isOnline}
+          theme={theme}
+          onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+          onForgetPort={handleForgetPort}
+        />
 
-      {/* Primary Dashboard Grid */}
-      <main className="dashboard-grid">
-        {/* Left Side: Connection & Hardware Controls */}
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <ConnectionPanel 
-            serialState={serialState}
-            onConnect={handleConnect}
-            onDisconnect={handleDisconnect}
-          />
-          
-          <SignalMonitor 
-            serialState={serialState}
-          />
+        {/* Primary Dashboard Grid */}
+        <main className={gridStyles as any}>
+          {/* Left Side: Connection & Hardware Controls */}
+          <section className={leftColumnStyles as any}>
+            <ConnectionPanel 
+              serialState={serialState}
+              onConnect={handleConnect}
+              onDisconnect={handleDisconnect}
+            />
+            
+            <UsbConverterCard 
+              serialState={serialState}
+            />
+          </section>
 
-          <UsbConverterCard 
-            serialState={serialState}
-          />
-        </section>
+          {/* Right Side: Tabbed Workspace */}
+          <section className={rightColumnStyles as any}>
+            {/* Tab Switcher Header */}
+            <div className={tabListStyles as any}>
+              <button 
+                onClick={() => setActiveTab('terminal')}
+                className={`${tabButtonStyles} ${activeTab === 'terminal' ? activeTabButtonStyles : ''}`}
+              >
+                📺 Serial Terminal
+              </button>
+              <button 
+                onClick={() => setActiveTab('diagnostics')}
+                className={`${tabButtonStyles} ${activeTab === 'diagnostics' ? activeTabButtonStyles : ''}`}
+              >
+                🔬 Chip Diagnostics
+              </button>
+              <button 
+                onClick={() => setActiveTab('signals')}
+                className={`${tabButtonStyles} ${activeTab === 'signals' ? activeTabButtonStyles : ''}`}
+              >
+                🔌 RS232 Handshake
+              </button>
+            </div>
 
-        {/* Right Side: Chip Diagnostics & Interactive Terminal */}
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <EspChipCard 
-            serialState={serialState}
-          />
-          
-          <ConsoleTerminal 
-            serialState={serialState}
-            receivedData={receivedData}
-            onSendData={handleSendData}
-            onClearLogs={handleClearLogs}
-          />
-        </section>
-      </main>
+            {/* Tab Panel Content */}
+            {activeTab === 'terminal' && (
+              <ConsoleTerminal 
+                serialState={serialState}
+                receivedData={receivedData}
+                onSendData={handleSendData}
+                onClearLogs={handleClearLogs}
+              />
+            )}
+            
+            {activeTab === 'diagnostics' && (
+              <EspChipCard 
+                serialState={serialState}
+              />
+            )}
 
-      {/* Corporate Anchored Footer */}
-      <DashboardFooter isOnline={isOnline} />
-    </div>
+            {activeTab === 'signals' && (
+              <SignalMonitor 
+                serialState={serialState}
+              />
+            )}
+          </section>
+        </main>
+
+        {/* Corporate Anchored Footer */}
+        <DashboardFooter isOnline={isOnline} />
+      </div>
+    </Provider>
   );
 }
 
 export default App;
+
