@@ -202,13 +202,26 @@ class SerialManager {
       } catch (_e) { /* ignore */ }
 
       // 5. Wait for OS to release the port handle before reopening
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Increased delay to 1000ms for more stability
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       try {
+        // Check if port is already open by a different handle or if close is still pending
         await port.open({ baudRate: originalBaud });
         this.startReading();
-      } catch (e) {
-        console.error('Failed to restore serial connection after exclusive action:', e);
+      } catch (e: any) {
+        if (e.message && e.message.includes('already open')) {
+          console.warn('Port still reporting as open, retrying in 1s...');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          try {
+            await port.open({ baudRate: originalBaud });
+            this.startReading();
+          } catch (retryErr) {
+             console.error('Final attempt to restore serial connection failed:', retryErr);
+          }
+        } else {
+          console.error('Failed to restore serial connection after exclusive action:', e);
+        }
         this.updateState({ isConnected: false, port: null, error: 'Failed to restore normal port operations.' });
       }
     }

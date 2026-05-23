@@ -70,7 +70,7 @@ const terminalHeaderStyles = style({
 });
 
 const screenStyles = style({
-  backgroundColor: 'gray-900',
+  backgroundColor: 'layer-2',
   fontFamily: 'code',
   font: 'body-xs',
   padding: 16,
@@ -79,10 +79,13 @@ const screenStyles = style({
   display: 'flex',
   flexDirection: 'column',
   gap: 4,
+  borderStyle: 'solid',
+  borderWidth: 1,
+  borderColor: 'gray-200',
 });
 
 const lineTimeStyles = style({
-  color: 'gray-500',
+  color: 'neutral-subdued',
   marginRight: 8,
   font: 'body-xs',
   fontFamily: 'code',
@@ -94,7 +97,7 @@ const warningLineStyles = style({ color: 'orange-500', fontFamily: 'code' });
 const infoLineStyles = style({ color: 'green-500', fontFamily: 'code' });
 const debugLineStyles = style({ color: 'purple-500', fontFamily: 'code' });
 const systemLineStyles = style({ color: 'blue-500', fontFamily: 'code', fontWeight: 'bold' });
-const defaultLineStyles = style({ color: 'gray-300', fontFamily: 'code' });
+const defaultLineStyles = style({ color: 'neutral', fontFamily: 'code' });
 
 const getLineStyles = (type: LogLine['type']) => {
   switch (type) {

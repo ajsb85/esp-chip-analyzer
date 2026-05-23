@@ -208,9 +208,22 @@ class EspDiagnostics {
       await (this.loader as any).main();
       serialManager.setChipMode('Download');
 
-      // Crucial: Load the Flasher Stub to prevent watchdog restarts and enable faster writes
-      onProgress('Uploading flasher stub...');
-      this.loader = (await (this.loader as any).runStub()) as ESPLoader;
+      // Check if any part of the binary overlaps with the flasher stub address space (usually 0x40800000)
+      const hasOverlap = fileArray.some(f => {
+        // If the address is in RAM range, it might conflict
+        return f.address >= 0x40000000 && f.address < 0x50000000;
+      });
+
+      if (hasOverlap) {
+        onProgress('Detected RAM segments in binary. Disabling high-speed stub to avoid memory conflict...');
+      } else {
+        try {
+          onProgress('Uploading flasher stub...');
+          this.loader = (await (this.loader as any).runStub()) as ESPLoader;
+        } catch (stubErr: any) {
+          onProgress('Warning: Failed to load stub. Falling back to ROM mode...');
+        }
+      }
 
       onProgress('Flashing firmware image...');
       if (this.loader) {
