@@ -77,9 +77,11 @@ function App() {
 
   useEffect(() => {
     if (theme === 'light') {
-      document.documentElement.classList.add('light-theme');
+      document.documentElement.classList.add('light-theme', 'spectrum--light');
+      document.documentElement.classList.remove('spectrum--dark');
     } else {
-      document.documentElement.classList.remove('light-theme');
+      document.documentElement.classList.remove('light-theme', 'spectrum--light');
+      document.documentElement.classList.add('spectrum--dark');
     }
     document.documentElement.setAttribute('data-color-scheme', theme);
     document.documentElement.setAttribute('data-background', 'base');
