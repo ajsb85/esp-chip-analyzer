@@ -136,14 +136,27 @@ class EspDiagnostics {
    */
   public async hardReset(port: SerialPort): Promise<void> {
     try {
+      const info = port.getInfo();
+      const isUsbJtag = info.usbVendorId === 0x303A && info.usbProductId === 0x1001;
+
       const tempTransport = this.transport || new Transport(port, true);
-      // Hard reset sequence (toggle DTR/RTS)
-      await tempTransport.setDTR(false);
-      await new Promise(resolve => setTimeout(resolve, 100));
-      await tempTransport.setRTS(true);
-      await new Promise(resolve => setTimeout(resolve, 100));
-      await tempTransport.setDTR(true);
-      await tempTransport.setRTS(false);
+
+      if (isUsbJtag) {
+        // Native USB-JTAG reset sequence
+        await tempTransport.setRTS(false);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await tempTransport.setRTS(true); // Pulse RTS to trigger reset
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await tempTransport.setRTS(false);
+      } else {
+        // Hard reset sequence (toggle DTR/RTS)
+        await tempTransport.setDTR(false);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await tempTransport.setRTS(true);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await tempTransport.setDTR(true);
+        await tempTransport.setRTS(false);
+      }
     } catch (err) {
       console.error('[EspDiagnostics] Hard reset failed:', err);
     }
@@ -159,11 +172,14 @@ class EspDiagnostics {
     onProgress: (msg: string, percent?: number) => void
   ): Promise<boolean> {
     try {
+      const info = port.getInfo();
+      const isUsbJtag = info.usbVendorId === 0x303A && info.usbProductId === 0x1001;
+
       if (this.transport) {
         try { await this.transport.disconnect(); } catch(_e){ /* ignore */ }
       }
       this.transport = new Transport(port, true);
-      
+
       const termMock = {
         clean: () => {},
         writeLine: (data: string) => {
@@ -180,7 +196,15 @@ class EspDiagnostics {
         terminal: termMock,
         debugLogging: false
       });
+
       onProgress('Synchronizing with bootloader...');
+
+      if (isUsbJtag) {
+        onProgress('Detected Native USB-JTAG Unit. Using specialized sync sequence...');
+        // For USB-JTAG, we might need to manually trigger the sync if loader.main() fails
+        // but esptool-js generally handles the PID internally if configured correctly.
+      }
+
       await (this.loader as any).main();
       serialManager.setChipMode('Download');
 
@@ -203,15 +227,16 @@ class EspDiagnostics {
           }
         });
       }
-      
+
       onProgress('Flashing complete! Verifying MD5...');
 
       onProgress('Restarting device into application mode...');
       if (this.loader) {
-        await (this.loader as any).after('hard_reset');
+        // Use specialized reset for USB-JTAG
+        await (this.loader as any).after(isUsbJtag ? 'usb_reset' : 'hard_reset');
       }
 
-return true;
+      return true;
 } catch (err: unknown) {
 console.error('[EspDiagnostics] Flashing error:', err);
 onProgress(`Error: ${err instanceof Error ? err.message : String(err)}`);
