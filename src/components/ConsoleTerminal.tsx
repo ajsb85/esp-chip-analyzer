@@ -187,15 +187,12 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
         </div>
         
         {/* XTerm Container */}
-        <div 
-          className={style({
-            backgroundColor: 'gray-900',
-            padding: 16,
-            minWidth: 0,
-          }) as any}
-          style={{ background: '#111827' }}
-        >
-          <div ref={terminalRef} style={{ height: 350, width: '100%', overflow: 'hidden', background: '#111827' }} />
+        <div style={{ background: '#111827', padding: 16, height: 350 }}>
+          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+              <div ref={terminalRef} style={{ width: '100%', height: '100%', overflow: 'hidden' }} />
+            </div>
+          </div>
         </div>
 
         {/* Command bar input form */}

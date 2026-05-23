@@ -67,12 +67,14 @@ export const TerminalView: FC<TerminalViewProps> = ({ lines, height = 300 }) => 
         borderRadius: 'lg',
         overflow: 'hidden',
         width: '100%',
-        backgroundColor: 'gray-900',
-        minWidth: 0, // Fixes flexbox infinite stretch
       }) as any}
       style={{ height, boxSizing: 'border-box', padding: '12px', background: '#111827' }}
     >
-      <div ref={terminalRef} style={{ width: '100%', height: '100%', overflow: 'hidden', background: '#111827' }} />
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div ref={terminalRef} style={{ width: '100%', height: '100%', overflow: 'hidden' }} />
+        </div>
+      </div>
     </div>
   );
 };

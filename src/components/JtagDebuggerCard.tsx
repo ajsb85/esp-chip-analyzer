@@ -45,18 +45,28 @@ export const JtagDebuggerCard: FC = () => {
     setGdbLog(prev => [...prev, `\x1b[38;2;96;165;250m(gdb) ${cmd}\x1b[0m`, response]);
   };
 
-  const handleGdbCommand = (cmd: string) => {
+  const handleGdbCommand = async (cmd: string) => {
     if (!cmd.trim()) return;
     
     let response = '';
     const c = cmd.trim();
     
     if (c === 'target remote :3333') {
-      response = 'Remote debugging using :3333\n0x42004560 in app_main () at main/jtag-showcase-fw.c:20';
-    } else if (c === 'mon reset halt') {
-      response = 'JTAG tap: esp32c5.cpu0 tap/device found: 0x00000cd5\nTarget halted. PC=0x40000400';
       if (espJtag.isConnected()) {
-        espJtag.setReset(true).then(() => espJtag.setReset(false));
+        const device = espJtag.getDevice();
+        response = `Remote debugging using :3333\nConnected to ${device?.productName}\n0x42004560 in app_main () at main/jtag-showcase-fw.c:45`;
+      } else {
+        response = 'Error: No JTAG hardware connected. Please use the "Connection Panel" or "EspJtagCard" to connect via WebUSB.';
+      }
+    } else if (c === 'mon reset halt') {
+      if (espJtag.isConnected()) {
+        await espJtag.setReset(true);
+        await new Promise(r => setTimeout(r, 100));
+        await espJtag.setReset(false);
+        const idcode = await espJtag.readIdCode();
+        response = `JTAG tap: esp32c5.cpu0 tap/device found: ${idcode}\nTarget halted. PC=0x40000400`;
+      } else {
+        response = 'JTAG tap: esp32c5.cpu0 tap/device found: 0x00000cd5 (SIMULATED)\nTarget halted. PC=0x40000400';
       }
     } else if (c === 'p jtag_blink_rate') {
       response = '$1 = 1000';
