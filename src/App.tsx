@@ -60,7 +60,7 @@ const rightColumnStyles = style({
 function App() {
   const [serialState, setSerialState] = useState<SerialConnectionState>(serialManager.getState());
   const [receivedData, setReceivedData] = useState<Uint8Array[]>([]);
-  const [activeTab, setActiveTab] = useState<'terminal' | 'diagnostics' | 'signals'>('terminal');
+  const [activeTab, setActiveTab] = useState<'terminal' | 'diagnostics' | 'signals' | 'flasher'>('terminal');
   const [isOnline, setIsOnline] = useState<boolean>(typeof window !== 'undefined' ? window.navigator.onLine : true);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('theme');
@@ -199,7 +199,7 @@ function App() {
           <Tabs 
             aria-label="Chip Analyzer Workspace"
             selectedKey={activeTab} 
-            onSelectionChange={(key) => setActiveTab(key as 'terminal' | 'diagnostics' | 'signals')}
+            onSelectionChange={(key) => setActiveTab(key as 'terminal' | 'diagnostics' | 'signals' | 'flasher')}
             styles={style({ width: '100%' })}
           >
             <TabList aria-label="Chip Analyzer Modes">

@@ -146,6 +146,72 @@ class EspDiagnostics {
       console.error('[EspDiagnostics] Hard reset failed:', err);
     }
   }
+
+  /**
+   * Performs the Espressif bootloader handshake and flashes firmware files.
+   */
+  public async flashFirmware(
+    port: SerialPort,
+    baudRate: number,
+    fileArray: { data: Uint8Array; address: number }[],
+    onProgress: (msg: string, percent?: number) => void
+  ): Promise<boolean> {
+    try {
+      if (this.transport) {
+        try { await this.transport.disconnect(); } catch(_e){ /* ignore */ }
+      }
+      this.transport = new Transport(port, true);
+      
+      const termMock = {
+        clean: () => {},
+        writeLine: (data: string) => {
+          if (data.trim() !== '') {
+            onProgress(`[ESPTool] ${data.trim()}`);
+          }
+        },
+        write: () => {}
+      };
+
+      this.loader = new ESPLoader({
+        transport: this.transport,
+        baudrate: baudRate,
+        terminal: termMock,
+        debugLogging: false
+      });
+
+      onProgress('Synchronizing with bootloader...');
+      await this.loader.main();
+
+      onProgress('Flashing firmware...');
+      await this.loader.writeFlash({
+        fileArray,
+        flashMode: 'keep',
+        flashFreq: 'keep',
+        flashSize: 'keep',
+        eraseAll: false,
+        compress: true,
+        reportProgress: (_fileIndex, written, total) => {
+          const percent = Math.round((written / total) * 100);
+          onProgress(`Writing flash... ${written}/${total} bytes`, percent);
+        }
+      });
+      onProgress('Flashing complete!', 100);
+      return true;
+    } catch (err: unknown) {
+      console.error('[EspDiagnostics] Flashing error:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      onProgress(`Error: ${msg}`);
+      return false;
+    } finally {
+      if (this.transport) {
+        try {
+          await this.transport.setDTR(false);
+          await this.transport.setRTS(false);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (_e) { /* ignore */ }
+      }
+    }
+  }
 }
 
 export const espDiagnostics = new EspDiagnostics();
