@@ -118,7 +118,8 @@ export class EspJtag {
   }
 
   public async clock(tms: boolean, tdi: boolean, cap: boolean): Promise<void> {
-    this.queueNibble((cap ? 4 : 0) | (tdi ? 2 : 0) | (tms ? 1 : 0));
+    // CMD_CLK: bit 3=0, bit 2=cap, bit 1=tms, bit 0=tdi
+    this.queueNibble((cap ? 4 : 0) | (tms ? 2 : 0) | (tdi ? 1 : 0));
     if (cap) this.pendingInBits++;
   }
 
@@ -164,14 +165,22 @@ export class EspJtag {
     return null;
   }
 
-  public async readIn(length: number = 64): Promise<Uint8Array | null> {
+  public async readIn(length: number = 64, timeoutMs: number = 500): Promise<Uint8Array | null> {
     if (!this.device) return null;
+
+    const timeoutPromise = new Promise<null>((resolve) => 
+      setTimeout(() => resolve(null), timeoutMs)
+    );
+
     try {
-      const result = await this.device.transferIn(this.endpointIn, length);
-      if (result.status === 'ok' && result.data) {
-        return new Uint8Array(result.data.buffer, result.data.byteOffset, result.data.byteLength);
-      }
-      return null;
+      const transferPromise = this.device.transferIn(this.endpointIn, length).then(result => {
+        if (result.status === 'ok' && result.data) {
+          return new Uint8Array(result.data.buffer, result.data.byteOffset, result.data.byteLength);
+        }
+        return null;
+      });
+
+      return await Promise.race([transferPromise, timeoutPromise]);
     } catch (e) {
       return null;
     }

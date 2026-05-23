@@ -41,84 +41,86 @@ export const JtagDebuggerCard: FC = () => {
     { name: 'a1', value: '0x00000000' },
   ]);
 
-  const logGdb = (cmd: string, response: string) => {
-    setGdbLog(prev => [...prev, `\x1b[38;2;96;165;250m(gdb) ${cmd}\x1b[0m`, response]);
-  };
-
   const handleGdbCommand = async (cmd: string) => {
     if (!cmd.trim()) return;
     
-    let response = '';
     const c = cmd.trim();
+    // 1. Immediate visual feedback: Log the command
+    setGdbLog(prev => [...prev, `\x1b[38;2;96;165;250m(gdb) ${c}\x1b[0m`]);
+    setGdbInput('');
 
+    // 2. Hardware check
     if (!espJtag.isConnected()) {
-      logGdb(c, `\x1b[31mError: JTAG Hardware Not Connected.\x1b[0m\nPlease use the Connection Panel to claim the WebUSB JTAG interface.`);
-      setGdbInput('');
+      setGdbLog(prev => [...prev, `\x1b[31mError: JTAG Hardware Not Connected.\x1b[0m\nPlease use the Connection Panel to claim the WebUSB JTAG interface.`]);
       return;
     }
 
+    let response = '';
     let hardwareStatus = '';
+    
     try {
+      // Real Heartbeat Check
       const realId = await espJtag.readIdCode();
-      if (realId === '0x00000000' || realId === '0xFFFFFFFF') {
-        hardwareStatus = `\x1b[33m[HW LINK WARNING: Invalid IDCODE ${realId}]\x1b[0m\n`;
+      if (!realId || realId === '0x00000000' || realId === '0xFFFFFFFF') {
+        hardwareStatus = `\x1b[33m[HW LINK WARNING: Invalid IDCODE ${realId || 'TIMEOUT'}]\x1b[0m\n`;
       } else {
         hardwareStatus = `\x1b[32m[HW LINK OK: ${realId}]\x1b[0m\n`;
       }
-    } catch (e) {
-      hardwareStatus = `\x1b[31m[HW LINK FAILED]\x1b[0m\n`;
-    }
-    
-    if (c === 'target remote :3333') {
-      const device = espJtag.getDevice();
-      response = `${hardwareStatus}Remote debugging using :3333\nConnected to ${device?.productName}\n0x42004560 in app_main () at main/jtag-showcase-fw.c:45`;
-    } else if (c === 'mon reset halt') {
-      await espJtag.setReset(true);
-      await new Promise(r => setTimeout(r, 150));
-      await espJtag.setReset(false);
-      const idcode = await espJtag.readIdCode();
-      response = `${hardwareStatus}JTAG tap: esp32c5.cpu0 tap/device found: ${idcode}\nTarget halted. PC=0x40000400`;
-    } else if (c === 'p jtag_blink_rate') {
-      const read = await espJtag.readMemoryWord(0x4080a958);
-      response = `${hardwareStatus}$1 = ${read !== null ? read : 'Error reading memory'}`;
-    } else if (c === 'p button_press_count') {
-      const read = await espJtag.readMemoryWord(0x4080d758);
-      response = `${hardwareStatus}$2 = ${read !== null ? read : 'Error reading memory'}`;
-    } else if (c === 'continue' || c === 'c') {
-      response = `${hardwareStatus}Continuing.`;
-    } else if (c === 'info registers' || c === 'i r') {
-      response = `${hardwareStatus}` + registers.map(r => `${r.name.padEnd(8)} ${r.value}`).join('\n');
-    } else if (c === 'backtrace' || c === 'bt') {
-      response = `${hardwareStatus}#0  0x42004560 in app_main () at main/jtag-showcase-fw.c:45\n#1  0x40000400 in start_cpu0 ()`;
-    } else if (c === 'info locals') {
-      response = `${hardwareStatus}btn_state = 1\nlast_btn_state = 1\nled_state = 0\ndelay = 1000`;
-    } else if (c.startsWith('set variable jtag_override_led')) {
-      const valStr = c.split('=').pop()?.trim() || '0';
-      const val = parseInt(valStr, 10);
-      const uval = val < 0 ? 0xFFFFFFFF : val;
-      const success = await espJtag.writeMemoryWord(0x4080a954, uval);
-      response = `${hardwareStatus}jtag_override_led set to ${valStr}\n(JTAG memory write @ 0x4080a954 ${success ? 'OK' : 'FAILED'})`;
-    } else if (c.startsWith('set variable jtag_blink_rate')) {
-      const valStr = c.split('=').pop()?.trim() || '1000';
-      const val = parseInt(valStr, 10);
-      const success = await espJtag.writeMemoryWord(0x4080a958, val);
-      response = `${hardwareStatus}jtag_blink_rate set to ${valStr}\n(JTAG memory write @ 0x4080a958 ${success ? 'OK' : 'FAILED'})`;
-    } else if (c.startsWith('watch button_press_count')) {
-      response = `${hardwareStatus}Hardware watchpoint 1: button_press_count (Triggering on bus cycle @ 0x4080d758)`;
-    } else if (c.startsWith('x/')) {
-      const addrStr = c.split(' ').pop() || '0';
-      const addr = parseInt(addrStr, 16);
-      let val: number | null = null;
-      if (!isNaN(addr)) {
-        val = await espJtag.readMemoryWord(addr);
+
+      if (c === 'target remote :3333') {
+        const device = espJtag.getDevice();
+        response = `${hardwareStatus}Remote debugging using :3333\nConnected to ${device?.productName}\n0x42004560 in app_main () at main/jtag-showcase-fw.c:45`;
+      } else if (c === 'mon reset halt') {
+        await espJtag.setReset(true);
+        await new Promise(r => setTimeout(r, 150));
+        await espJtag.setReset(false);
+        const id = await espJtag.readIdCode();
+        response = `${hardwareStatus}JTAG tap: esp32c5.cpu0 tap/device found: ${id}\nTarget halted. PC=0x40000400`;
+      } else if (c === 'p jtag_blink_rate') {
+        const read = await espJtag.readMemoryWord(0x4080a958);
+        response = `${hardwareStatus}$1 = ${read !== null ? read : 'Error reading memory'}`;
+      } else if (c === 'p button_press_count') {
+        const read = await espJtag.readMemoryWord(0x4080d758);
+        response = `${hardwareStatus}$2 = ${read !== null ? read : 'Error reading memory'}`;
+      } else if (c === 'continue' || c === 'c') {
+        response = `${hardwareStatus}Continuing.`;
+      } else if (c === 'info registers' || c === 'i r') {
+        response = `${hardwareStatus}` + registers.map(r => `${r.name.padEnd(8)} ${r.value}`).join('\n');
+      } else if (c === 'backtrace' || c === 'bt') {
+        response = `${hardwareStatus}#0  0x42004560 in app_main () at main/jtag-showcase-fw.c:45\n#1  0x40000400 in start_cpu0 ()`;
+      } else if (c === 'info locals') {
+        response = `${hardwareStatus}btn_state = 1\nlast_btn_state = 1\nled_state = 0\ndelay = 1000`;
+      } else if (c === 'maintenance flush register-cache') {
+        response = `${hardwareStatus}Register cache flushed.`;
+      } else if (c.startsWith('set variable jtag_override_led')) {
+        const valStr = c.split('=').pop()?.trim() || '0';
+        const val = parseInt(valStr, 10);
+        const uval = val < 0 ? 0xFFFFFFFF : val;
+        const success = await espJtag.writeMemoryWord(0x4080a954, uval);
+        response = `${hardwareStatus}jtag_override_led set to ${valStr}\n(JTAG memory write @ 0x4080a954 ${success ? 'OK' : 'FAILED'})`;
+      } else if (c.startsWith('set variable jtag_blink_rate')) {
+        const valStr = c.split('=').pop()?.trim() || '1000';
+        const val = parseInt(valStr, 10);
+        const success = await espJtag.writeMemoryWord(0x4080a958, val);
+        response = `${hardwareStatus}jtag_blink_rate set to ${valStr}\n(JTAG memory write @ 0x4080a958 ${success ? 'OK' : 'FAILED'})`;
+      } else if (c.startsWith('watch button_press_count')) {
+        response = `${hardwareStatus}Hardware watchpoint 1: button_press_count (Triggering on bus cycle @ 0x4080d758)`;
+      } else if (c.startsWith('x/')) {
+        const addrStr = c.split(' ').pop() || '0';
+        const addr = parseInt(addrStr, 16);
+        let val: number | null = null;
+        if (!isNaN(addr)) {
+          val = await espJtag.readMemoryWord(addr);
+        }
+        response = `${hardwareStatus}${addrStr}: ${val !== null ? `0x${(val >>> 0).toString(16).toUpperCase().padStart(8, '0')}` : 'Read Failed'}`;
+      } else {
+        response = `${hardwareStatus}Undefined command: "${c}". Try "help".`;
       }
-      response = `${hardwareStatus}${addrStr}: ${val !== null ? `0x${(val >>> 0).toString(16).toUpperCase().padStart(8, '0')}` : 'Read Failed'}`;
-    } else {
-      response = `Undefined command: "${c}". Try "help".`;
+    } catch (err: any) {
+      response = `\x1b[31mCritical JTAG Error: ${err.message}\x1b[0m`;
     }
     
-    logGdb(c, response);
-    setGdbInput('');
+    setGdbLog(prev => [...prev, response]);
   };
 
   const handleReadMemory = () => {
