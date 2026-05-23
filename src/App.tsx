@@ -10,6 +10,7 @@ import { EspJtagCard } from './components/EspJtagCard';
 import { JtagDebuggerCard } from './components/JtagDebuggerCard';
 import { EspChipCard } from './components/EspChipCard';
 import { FirmwareFlasherCard } from './components/FirmwareFlasherCard';
+import { JtagPlaygroundCard } from './components/JtagPlaygroundCard';
 import { FirmwareForensicCard } from './components/FirmwareForensicCard';
 import { ConsoleTerminal } from './components/ConsoleTerminal';
 import { Provider } from '@react-spectrum/s2/Provider';
@@ -21,6 +22,7 @@ import DataSettingsIcon from '@react-spectrum/s2/icons/DataSettings';
 import DataIcon from '@react-spectrum/s2/icons/Data';
 import DataUploadIcon from '@react-spectrum/s2/icons/DataUpload';
 import BugIcon from '@react-spectrum/s2/icons/Bug';
+import PlayIcon from '@react-spectrum/s2/icons/Play';
 
 const appContainerStyles = style({
   maxWidth: 1200,
@@ -61,7 +63,7 @@ const rightColumnStyles = style({
   width: '100%',
 });
 
-type AppTab = 'terminal' | 'diagnostics' | 'signals' | 'flasher' | 'forensic' | 'jtag';
+type AppTab = 'terminal' | 'diagnostics' | 'signals' | 'flasher' | 'forensic' | 'jtag' | 'jtag-playground';
 
 function App() {
   const [serialState, setSerialState] = useState<SerialConnectionState>(serialManager.getState());
@@ -188,6 +190,7 @@ function App() {
             <TabList aria-label="Chip Analyzer Modes">
               <Tab id="terminal"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><CodeIcon /> Serial Terminal</div></Tab>
               <Tab id="jtag"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><BugIcon /> WebOCD JTAG</div></Tab>
+              <Tab id="jtag-playground"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><PlayIcon /> JTAG Playground</div></Tab>
               <Tab id="flasher"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><DataUploadIcon /> Firmware Flasher</div></Tab>
               <Tab id="forensic"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><SearchIcon /> Firmware Forensic</div></Tab>
               <Tab id="diagnostics"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><DataSettingsIcon /> Chip Diagnostics</div></Tab>
@@ -207,6 +210,9 @@ function App() {
                 <EspJtagCard />
                 <JtagDebuggerCard />
               </div>
+            </TabPanel>
+            <TabPanel id="jtag-playground">
+              <JtagPlaygroundCard serialState={serialState} />
             </TabPanel>
             <TabPanel id="flasher">
               <FirmwareFlasherCard serialState={serialState} />
