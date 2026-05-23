@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { FC } from 'react';
 import { Badge } from '@react-spectrum/s2/Badge';
 import { InlineAlert, Heading, Content } from '@react-spectrum/s2/InlineAlert';

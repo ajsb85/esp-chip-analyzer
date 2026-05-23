@@ -214,9 +214,12 @@ function App() {
               />
             </TabPanel>
             <TabPanel id="diagnostics">
-              <EspChipCard 
-                serialState={serialState}
-              />
+              <div className={style({ display: 'flex', flexDirection: 'column', gap: 24 }) as any}>
+                <EspChipCard 
+                  serialState={serialState}
+                />
+                <AutoProgrammerCard />
+              </div>
             </TabPanel>
             <TabPanel id="signals">
               <SignalMonitor 
@@ -228,14 +231,6 @@ function App() {
       </main>
 
       {/* Corporate Anchored Footer */}
-      <DashboardFooter isOnline={isOnline} />
-    </Provider>
-  );
-}
-
-export default App;
-
- */}
       <DashboardFooter isOnline={isOnline} />
     </Provider>
   );
