@@ -6,7 +6,8 @@ const ASSETS_TO_CACHE = [
   './src/App.tsx',
   './src/index.css',
   './manifest.json',
-  'https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap'
+  './favicon.svg',
+  './icons.svg'
 ];
 
 self.addEventListener('install', (event) => {
