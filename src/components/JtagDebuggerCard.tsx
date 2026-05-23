@@ -115,6 +115,7 @@ export const JtagDebuggerCard: FC = () => {
       </Text>
 
       <Tabs 
+        aria-label="GDB Debugger Options"
         selectedKey={activeTab} 
         onSelectionChange={(key) => setActiveTab(key as string)}
       >
