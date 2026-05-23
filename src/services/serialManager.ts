@@ -164,6 +164,55 @@ class SerialManager {
   }
 
   /**
+   * Temporarily closes the port, reopens it at 300 baud, executes the provided async action,
+   * closes it, and reopens it at the original baud rate to resume normal operation.
+   */
+  public async runTemporary300BaudAction<T>(action: (port: SerialPort) => Promise<T>): Promise<T> {
+    if (!this.state.port || !this.state.isConnected) {
+      throw new Error('No active serial port connected.');
+    }
+
+    const port = this.state.port;
+    const originalBaud = this.state.baudRate;
+
+    // 1. Terminate the active reader loop
+    this.keepReading = false;
+    if (this.reader) {
+      try {
+        await this.reader.cancel();
+      } catch (e) {}
+      this.reader = null;
+    }
+
+    // 2. Close the serial port
+    try {
+      await port.close();
+    } catch (e) {}
+
+    try {
+      // 3. Open port at 300 baud for configuration commands
+      await port.open({ baudRate: 300 });
+
+      // 4. Run the user's action
+      const result = await action(port);
+      return result;
+    } finally {
+      // 5. Always attempt to restore the original connection parameters
+      try {
+        await port.close();
+      } catch (e) {}
+
+      try {
+        await port.open({ baudRate: originalBaud });
+        this.startReading();
+      } catch (e) {
+        console.error('Failed to restore serial connection after temporary action:', e);
+        this.updateState({ isConnected: false, port: null, error: 'Failed to restore normal port operations.' });
+      }
+    }
+  }
+
+  /**
    * Start asynchronous reading loop.
    */
   private async startReading() {

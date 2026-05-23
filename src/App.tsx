@@ -8,6 +8,7 @@ import { SignalMonitor } from './components/SignalMonitor';
 import { UsbConverterCard } from './components/UsbConverterCard';
 import { EspChipCard } from './components/EspChipCard';
 import { ConsoleTerminal } from './components/ConsoleTerminal';
+import { Provider } from '@react-spectrum/s2/Provider';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
 
 const appContainerStyles = style({
@@ -188,7 +189,12 @@ function App() {
   };
 
   return (
-    <div className={appContainerStyles as any}>
+    <Provider
+      locale="en-US"
+      colorScheme={theme}
+      background="base"
+      styles={appContainerStyles}
+    >
       {/* Top Header Card */}
       <DashboardHeader 
         serialState={serialState} 
@@ -263,7 +269,7 @@ function App() {
 
       {/* Corporate Anchored Footer */}
       <DashboardFooter isOnline={isOnline} />
-    </div>
+    </Provider>
   );
 }
 

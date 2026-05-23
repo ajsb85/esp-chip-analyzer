@@ -295,10 +295,13 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
           onSubmit={(e) => { e.preventDefault(); handleSend(); }} 
           className={style({
             display: 'flex',
-            backgroundColor: 'gray-100',
+            gap: 8,
+            alignItems: 'end',
+            padding: 16,
+            backgroundColor: 'layer-2',
             borderTopStyle: 'solid',
             borderTopWidth: 1,
-            borderTopColor: 'gray-300',
+            borderTopColor: 'gray-200',
           }) as any}
         >
           <TextField 
@@ -309,16 +312,13 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
             aria-label="Serial command input"
             styles={style({ 
               flexGrow: 1, 
-              borderWidth: 0,
-              borderRadius: 'none',
-              backgroundColor: 'transparent'
             }) as any}
           />
           <Button 
             variant="accent" 
             type="submit"
             isDisabled={!serialState.isConnected || !inputVal}
-            styles={style({ borderRadius: 'none' }) as any}
+            styles={style({ marginBottom: 0 }) as any}
           >
             Send
           </Button>

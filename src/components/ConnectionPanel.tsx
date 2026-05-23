@@ -4,6 +4,7 @@ import { serialManager } from '../services/serialManager';
 import type { SerialConnectionState } from '../services/serialManager';
 import { Picker, PickerItem } from '@react-spectrum/s2/Picker';
 import { InlineAlert, Heading, Content } from '@react-spectrum/s2/InlineAlert';
+import { Button } from '@react-spectrum/s2/Button';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
 import SearchIcon from '@react-spectrum/s2/icons/Search';
 
@@ -154,40 +155,16 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
         </div>
       )}
 
-      {/* Select Port Trigger (Secondary Brand Blue Contrast Button) */}
-      <button 
-        onClick={handleSelectPort} 
-        disabled={serialState.isConnected}
-        className={style({
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          width: 'full',
-          paddingY: 8,
-          paddingX: 16,
-          borderStyle: 'none',
-          borderRadius: 'default',
-          fontWeight: 'bold',
-          fontSize: 'body-sm',
-          cursor: { default: 'pointer', _disabled: 'not-allowed' },
-          opacity: { default: 1, _disabled: 0.5 },
-          backgroundColor: { 
-            default: 'blue-900', 
-            _hover: 'blue-1000', 
-            _active: 'blue-1100',
-            _dark: 'blue-500',
-            _dark_hover: 'blue-400',
-            _dark_active: 'blue-300',
-            _disabled: 'gray-300'
-          },
-          color: 'white',
-          transition: 'colors'
-        }) as any}
+      {/* Select Port Trigger */}
+      <Button 
+        onPress={handleSelectPort}
+        isDisabled={serialState.isConnected}
+        variant="secondary"
+        styles={style({ width: 'full' }) as any}
       >
         <SearchIcon />
         Select New Device
-      </button>
+      </Button>
 
       {/* Baud Rate selector */}
       <Picker 
@@ -204,72 +181,24 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
         ))}
       </Picker>
 
-      {/* Connection Buttons (Primary Corporate Red buttons) */}
+      {/* Connection Buttons */}
       {!serialState.isConnected ? (
-        <button 
-          onClick={handleConnectClick} 
-          disabled={pairedPorts.length === 0}
-          className={style({
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            width: 'full',
-            paddingY: 12,
-            paddingX: 16,
-            borderStyle: 'none',
-            borderRadius: 'default',
-            fontWeight: 'bold',
-            fontSize: 'body-sm',
-            cursor: { default: 'pointer', _disabled: 'not-allowed' },
-            opacity: { default: 1, _disabled: 0.5 },
-            backgroundColor: { 
-              default: 'red-900', 
-              _hover: 'red-1000', 
-              _active: 'red-1100',
-              _dark: 'red-600',
-              _dark_hover: 'red-500',
-              _dark_active: 'red-400',
-              _disabled: 'gray-300'
-            },
-            color: 'white',
-            transition: 'colors',
-            marginTop: 8
-          }) as any}
+        <Button 
+          onPress={handleConnectClick} 
+          isDisabled={pairedPorts.length === 0}
+          variant="accent"
+          styles={style({ width: 'full', marginTop: 8 }) as any}
         >
-          🔌 Connect Analyzer
-        </button>
+          Connect Analyzer
+        </Button>
       ) : (
-        <button 
-          onClick={onDisconnect} 
-          className={style({
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            width: 'full',
-            paddingY: 12,
-            paddingX: 16,
-            borderStyle: 'none',
-            borderRadius: 'default',
-            fontWeight: 'bold',
-            fontSize: 'body-sm',
-            cursor: 'pointer',
-            backgroundColor: { 
-              default: 'red-900', 
-              _hover: 'red-1000', 
-              _active: 'red-1100',
-              _dark: 'red-600',
-              _dark_hover: 'red-500',
-              _dark_active: 'red-400'
-            },
-            color: 'white',
-            transition: 'colors',
-            marginTop: 8
-          }) as any}
+        <Button 
+          onPress={onDisconnect} 
+          variant="negative"
+          styles={style({ width: 'full', marginTop: 8 }) as any}
         >
-          🔌 Disconnect Analyzer
-        </button>
+          Disconnect Analyzer
+        </Button>
       )}
     </div>
   );
