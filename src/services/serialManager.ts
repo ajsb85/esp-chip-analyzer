@@ -101,7 +101,11 @@ class SerialManager {
       this.onDisconnectCallback = onDisconnect;
       this.updateState({ error: null, errorClass: null, isReconnecting: false, chipMode: 'Unknown' });
 
-      console.log('[SERIAL] Attempting to open port at baud:', baudRate);
+      console.log('[SERIAL] Connecting at baud:', baudRate);
+      
+      // Close first if somehow browser state is desynced
+      await this.safeClosePort(port);
+
       await port.open({ baudRate });
       this.updateState({ isConnected: true, port, baudRate });
 
@@ -110,6 +114,48 @@ class SerialManager {
     } catch (err) {
       this.handleError(err);
       return false;
+    }
+  }
+
+  /**
+   * Safe idempotent port closure.
+   */
+  public async safeClosePort(port: SerialPort | null): Promise<void> {
+    if (!port) return;
+    
+    console.log('[SERIAL] Safe closing port...');
+    
+    // 1. Release locks if any
+    if (port.readable && port.readable.locked) {
+       try {
+         const reader = port.readable.getReader();
+         await reader.cancel().catch(() => {});
+         reader.releaseLock();
+       } catch (e) {
+         console.warn('[SERIAL] Failed to release readable lock:', e);
+       }
+    }
+    
+    if (port.writable && port.writable.locked) {
+       try {
+         const writer = port.writable.getWriter();
+         await writer.abort().catch(() => {});
+         writer.releaseLock();
+       } catch (e) {
+         console.warn('[SERIAL] Failed to release writable lock:', e);
+       }
+    }
+
+    // 2. Try to close
+    try {
+      // We only call close() if the streams are null (meaning it might be open)
+      // or if we just unlocked them.
+      await port.close().catch(() => {});
+    } catch (e: any) {
+      // Ignore "already closed"
+      if (!e.message.includes('already closed')) {
+        console.warn('[SERIAL] Close warning:', e);
+      }
     }
   }
 
@@ -125,22 +171,16 @@ class SerialManager {
       this.reconnectTimer = null;
     }
 
+    const port = this.state.port;
+    
     if (this.reader) {
       try {
-        console.log('[SERIAL] Cancelling active reader...');
-        await this.reader.cancel();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        await this.reader.cancel().catch(() => {});
       } catch (_e) { /* ignore */ }
       this.reader = null;
     }
 
-    if (this.state.port) {
-      try {
-        console.log('[SERIAL] Closing port...');
-        await this.state.port.close();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (_e) { /* ignore */ }
-    }
+    await this.safeClosePort(port);
 
     this.updateState({ isConnected: false, port: null, isReconnecting: false, chipMode: 'Unknown' });
     if (this.onDisconnectCallback) {
@@ -166,8 +206,7 @@ class SerialManager {
   }
 
   /**
-   * Temporarily closes the port, pauses reading, executes the provided async action (which is responsible for opening the port if needed),
-   * and then closes and reopens it at the original baud rate to resume normal operation.
+   * Executes an action with exclusive port access.
    */
   public async runExclusiveAction<T>(action: (port: SerialPort) => Promise<T>): Promise<T> {
     if (!this.state.port || !this.state.isConnected) {
@@ -177,58 +216,49 @@ class SerialManager {
     const port = this.state.port;
     const originalBaud = this.state.baudRate;
 
-    console.log('[EXCLUSIVE] Stopping background reader...');
+    console.log('[EXCLUSIVE] Pausing background operations...');
     this.keepReading = false;
     if (this.reader) {
       try {
-        await this.reader.cancel();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        await this.reader.cancel().catch(() => {});
       } catch (_e) { /* ignore */ }
       this.reader = null;
     }
 
-    console.log('[EXCLUSIVE] Closing port for external tool use...');
-    try {
-      await port.close();
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (_e) { /* ignore */ }
+    await this.safeClosePort(port);
 
-    // Wait for the browser/OS to sync before handing over to the action
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Wait for the OS to acknowledge the closure
+    await new Promise(resolve => setTimeout(resolve, 800));
 
     try {
-      console.log('[EXCLUSIVE] Executing external action...');
+      console.log('[EXCLUSIVE] Executing tool action...');
       const result = await action(port);
       return result;
     } finally {
-      console.log('[EXCLUSIVE] Restoring background serial stream...');
-      try {
-        // Ensure it's closed before we try to re-open for our terminal.
-        await port.close().catch(() => {});
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (_e) { /* ignore */ }
+      console.log('[EXCLUSIVE] Restoring serial connection...');
+      
+      // TOOL might have closed it, or left it open. 
+      // We ensure it's closed before we try to re-open for our terminal.
+      await this.safeClosePort(port);
 
-      // Wait longer for OS to release the handle
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Guard delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       try {
-        console.log('[EXCLUSIVE] Re-opening port at baud:', originalBaud);
         await port.open({ baudRate: originalBaud });
         this.startReading();
       } catch (e: any) {
-        if (e.message && (e.message.includes('already open') || e.message.includes('busy'))) {
-          console.warn('[EXCLUSIVE] Port busy, retrying final restoration in 2s...');
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          try {
-            await port.open({ baudRate: originalBaud });
-            this.startReading();
-          } catch (retryErr) {
-             console.error('[EXCLUSIVE] CRITICAL: Final restoration failed:', retryErr);
-             this.updateState({ isConnected: false, port: null, error: 'Connection lost. Port remains locked by OS.' });
-          }
-        } else {
-          console.error('[EXCLUSIVE] Restoration error:', e);
-          this.updateState({ isConnected: false, port: null, error: 'Failed to resume serial stream.' });
+        console.warn('[EXCLUSIVE] Restoration retry sequence initiated...', e.message);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        try {
+          // If first attempt failed, try ONE more time after a longer wait
+          await this.safeClosePort(port);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          await port.open({ baudRate: originalBaud });
+          this.startReading();
+        } catch (retryErr: any) {
+          console.error('[EXCLUSIVE] Restoration failed:', retryErr.message);
+          this.updateState({ isConnected: false, port: null, error: 'Port was not released by the tool.' });
         }
       }
     }
@@ -257,7 +287,6 @@ class SerialManager {
               break;
             }
             if (value) {
-              // sniffs for mode indicators
               const text = this.bootDecoder.decode(value, { stream: true });
               this.bootBuffer += text;
               if (this.bootBuffer.length > 2000) this.bootBuffer = this.bootBuffer.slice(-2000);
@@ -279,7 +308,7 @@ class SerialManager {
           }
         } catch (readErr) {
           console.error('Read error inside serial stream loop:', readErr);
-          break; // Break and release reader
+          break;
         } finally {
           this.reader.releaseLock();
           this.reader = null;
@@ -381,7 +410,6 @@ class SerialManager {
 
     if (isUserCancel) {
       console.log('[SERIAL] Port selection cancelled by the user.');
-      // Keep state clean and clear previous errors
       this.updateState({ error: null, errorClass: null });
       return;
     }
