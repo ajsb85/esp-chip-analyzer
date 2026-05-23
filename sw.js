@@ -37,7 +37,7 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  const CACHE_NAME = 'esp-analyzer-cache-v1.1.0';
+  const CACHE_NAME = 'esp-analyzer-cache-v5';
 
   self.addEventListener('fetch', (event) => {
     // Only handle standard HTTP GET requests
