@@ -149,6 +149,7 @@ class EspDiagnostics {
    * Resets the Espressif chip into standard firmware execution mode (hard reset).
    */
   public async hardReset(port: SerialPort): Promise<void> {
+    let transport: Transport | null = null;
     try {
       const info = port.getInfo();
       const isUsbJtag = info.usbVendorId === 0x303A && info.usbProductId === 0x1001;
@@ -160,30 +161,34 @@ class EspDiagnostics {
         if (!e.message.includes('already open')) throw e;
       }
 
-      const transport = new Transport(port, true);
+      transport = new Transport(port, true);
       
-      try {
-        if (isUsbJtag) {
-          // Native USB-JTAG reset sequence
-          await transport.setRTS(false);
-          await new Promise(resolve => setTimeout(resolve, 100));
-          await transport.setRTS(true); // Pulse RTS to trigger reset
-          await new Promise(resolve => setTimeout(resolve, 100));
-          await transport.setRTS(false);
-        } else {
-          // Hard reset sequence (toggle DTR/RTS)
-          await transport.setDTR(false);
-          await new Promise(resolve => setTimeout(resolve, 100));
-          await transport.setRTS(true);
-          await new Promise(resolve => setTimeout(resolve, 100));
-          await transport.setDTR(true);
-          await transport.setRTS(false);
-        }
-      } finally {
-        await transport.disconnect();
+      if (isUsbJtag) {
+        // Native USB-JTAG reset sequence
+        await transport.setRTS(false);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await transport.setRTS(true); // Pulse RTS to trigger reset
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await transport.setRTS(false);
+      } else {
+        // Hard reset sequence (toggle DTR/RTS)
+        await transport.setDTR(false);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await transport.setRTS(true);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await transport.setDTR(true);
+        await transport.setRTS(false);
       }
     } catch (err) {
       console.error('[EspDiagnostics] Hard reset failed:', err);
+    } finally {
+      if (transport) {
+        try {
+          await transport.disconnect();
+        } catch (_e) {
+          // Ignore "already closed" or signal errors in finally
+        }
+      }
     }
   }
 

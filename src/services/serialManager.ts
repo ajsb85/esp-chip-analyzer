@@ -193,8 +193,8 @@ class SerialManager {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (_e) { /* ignore */ }
 
-    // Wait for the browser/OS to sync
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Wait for the browser/OS to sync before handing over to the action
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     try {
       console.log('[EXCLUSIVE] Executing external action...');
@@ -203,14 +203,13 @@ class SerialManager {
     } finally {
       console.log('[EXCLUSIVE] Restoring background serial stream...');
       try {
-        // esptool-js might leave the port open or closed depending on state.
-        // We ensure it's closed before we try to re-open for our terminal.
+        // Ensure it's closed before we try to re-open for our terminal.
         await port.close().catch(() => {});
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_e) { /* ignore */ }
 
-      // Stabilize OS handle
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Wait longer for OS to release the handle
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       try {
         console.log('[EXCLUSIVE] Re-opening port at baud:', originalBaud);
