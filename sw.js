@@ -4,7 +4,12 @@ const ASSETS_TO_CACHE = [
   './index.html',
   './manifest.json',
   './favicon.svg',
-  './icons.svg'
+  './favicon.ico',
+  './apple-touch-icon.png',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-192-maskable.png',
+  './icon-512-maskable.png'
 ];
 
 self.addEventListener('install', (event) => {
