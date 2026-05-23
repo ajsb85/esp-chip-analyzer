@@ -29,7 +29,7 @@ class EspDiagnostics {
       onProgress('Initializing WebSerial transport layer...');
       
       // esptool-js handles port opening internally via transport.connect()
-      // We explicitly DO NOT open it here to avoid "already open" errors
+      // Calling port.open() here would cause an "already open" error.
       transport = new Transport(port, true);
       
       const termMock = {
@@ -133,9 +133,8 @@ class EspDiagnostics {
         try {
           await transport.setDTR(false);
           await transport.setRTS(false);
-          // Only disconnect/close if the port is actually open
           await transport.disconnect();
-        } catch (_e) { /* ignore */ }
+        } catch (_e) { /* ignore already closed */ }
       }
     }
   }
@@ -149,7 +148,7 @@ class EspDiagnostics {
       const info = port.getInfo();
       const isUsbJtag = info.usbVendorId === 0x303A && info.usbProductId === 0x1001;
       
-      // For manual signal toggling, we DO need to ensure the port is open.
+      // Ensure port is open for signal toggling (WebSerial requirement)
       try {
         await port.open({ baudRate: 115200 });
       } catch (e: any) {
@@ -162,7 +161,7 @@ class EspDiagnostics {
         // Native USB-JTAG reset sequence
         await transport.setRTS(false);
         await new Promise(resolve => setTimeout(resolve, 100));
-        await transport.setRTS(true); // Pulse RTS to trigger reset
+        await transport.setRTS(true);
         await new Promise(resolve => setTimeout(resolve, 100));
         await transport.setRTS(false);
       } else {
