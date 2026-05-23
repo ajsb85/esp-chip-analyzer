@@ -7,6 +7,7 @@ import { ConnectionPanel } from './components/ConnectionPanel';
 import { SignalMonitor } from './components/SignalMonitor';
 import { UsbConverterCard } from './components/UsbConverterCard';
 import { EspJtagCard } from './components/EspJtagCard';
+import { JtagDebuggerCard } from './components/JtagDebuggerCard';
 import { EspChipCard } from './components/EspChipCard';
 import { FirmwareFlasherCard } from './components/FirmwareFlasherCard';
 import { FirmwareForensicCard } from './components/FirmwareForensicCard';
@@ -202,7 +203,10 @@ function App() {
               />
             </TabPanel>
             <TabPanel id="jtag">
-              <EspJtagCard />
+              <div className={style({ display: 'flex', flexDirection: 'column', gap: 24 }) as any}>
+                <EspJtagCard />
+                <JtagDebuggerCard />
+              </div>
             </TabPanel>
             <TabPanel id="flasher">
               <FirmwareFlasherCard serialState={serialState} />
