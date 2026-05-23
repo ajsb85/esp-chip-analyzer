@@ -9,7 +9,6 @@ import { UsbConverterCard } from './components/UsbConverterCard';
 import { EspChipCard } from './components/EspChipCard';
 import { ConsoleTerminal } from './components/ConsoleTerminal';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
-import { Provider } from '@react-spectrum/s2/Provider';
 
 const appContainerStyles = style({
   maxWidth: 1200,
@@ -19,14 +18,6 @@ const appContainerStyles = style({
   flexDirection: 'column',
   gap: 24,
   minHeight: '100vh',
-  backgroundColor: {
-    default: 'gray-50',
-    _dark: 'gray-100'
-  },
-  color: {
-    default: 'gray-900',
-    _dark: 'gray-1000'
-  }
 });
 
 const gridStyles = style({
@@ -104,13 +95,15 @@ function App() {
     return 'dark';
   });
 
-  // Apply theme class to documentElement
+  // Apply theme class and data attributes to documentElement
   useEffect(() => {
     if (theme === 'light') {
       document.documentElement.classList.add('light-theme');
     } else {
       document.documentElement.classList.remove('light-theme');
     }
+    document.documentElement.setAttribute('data-color-scheme', theme);
+    document.documentElement.setAttribute('data-background', 'base');
     localStorage.setItem('theme', theme);
   }, [theme]);
 
@@ -195,84 +188,82 @@ function App() {
   };
 
   return (
-    <Provider colorScheme={theme}>
-      <div className={appContainerStyles as any}>
-        {/* Top Header Card */}
-        <DashboardHeader 
-          serialState={serialState} 
-          isOnline={isOnline}
-          theme={theme}
-          onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
-          onForgetPort={handleForgetPort}
-        />
+    <div className={appContainerStyles as any}>
+      {/* Top Header Card */}
+      <DashboardHeader 
+        serialState={serialState} 
+        isOnline={isOnline}
+        theme={theme}
+        onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+        onForgetPort={handleForgetPort}
+      />
 
-        {/* Primary Dashboard Grid */}
-        <main className={gridStyles as any}>
-          {/* Left Side: Connection & Hardware Controls */}
-          <section className={leftColumnStyles as any}>
-            <ConnectionPanel 
+      {/* Primary Dashboard Grid */}
+      <main className={gridStyles as any}>
+        {/* Left Side: Connection & Hardware Controls */}
+        <section className={leftColumnStyles as any}>
+          <ConnectionPanel 
+            serialState={serialState}
+            onConnect={handleConnect}
+            onDisconnect={handleDisconnect}
+          />
+          
+          <UsbConverterCard 
+            serialState={serialState}
+          />
+        </section>
+
+        {/* Right Side: Tabbed Workspace */}
+        <section className={rightColumnStyles as any}>
+          {/* Tab Switcher Header */}
+          <div className={tabListStyles as any}>
+            <button 
+              onClick={() => setActiveTab('terminal')}
+              className={`${tabButtonStyles} ${activeTab === 'terminal' ? activeTabButtonStyles : ''}`}
+            >
+              📺 Serial Terminal
+            </button>
+            <button 
+              onClick={() => setActiveTab('diagnostics')}
+              className={`${tabButtonStyles} ${activeTab === 'diagnostics' ? activeTabButtonStyles : ''}`}
+            >
+              🔬 Chip Diagnostics
+            </button>
+            <button 
+              onClick={() => setActiveTab('signals')}
+              className={`${tabButtonStyles} ${activeTab === 'signals' ? activeTabButtonStyles : ''}`}
+            >
+              🔌 RS232 Handshake
+            </button>
+          </div>
+
+          {/* Tab Panel Content */}
+          {activeTab === 'terminal' && (
+            <ConsoleTerminal 
               serialState={serialState}
-              onConnect={handleConnect}
-              onDisconnect={handleDisconnect}
+              receivedData={receivedData}
+              onSendData={handleSendData}
+              onClearLogs={handleClearLogs}
             />
-            
-            <UsbConverterCard 
+          )}
+          
+          {activeTab === 'diagnostics' && (
+            <EspChipCard 
               serialState={serialState}
             />
-          </section>
+          )}
 
-          {/* Right Side: Tabbed Workspace */}
-          <section className={rightColumnStyles as any}>
-            {/* Tab Switcher Header */}
-            <div className={tabListStyles as any}>
-              <button 
-                onClick={() => setActiveTab('terminal')}
-                className={`${tabButtonStyles} ${activeTab === 'terminal' ? activeTabButtonStyles : ''}`}
-              >
-                📺 Serial Terminal
-              </button>
-              <button 
-                onClick={() => setActiveTab('diagnostics')}
-                className={`${tabButtonStyles} ${activeTab === 'diagnostics' ? activeTabButtonStyles : ''}`}
-              >
-                🔬 Chip Diagnostics
-              </button>
-              <button 
-                onClick={() => setActiveTab('signals')}
-                className={`${tabButtonStyles} ${activeTab === 'signals' ? activeTabButtonStyles : ''}`}
-              >
-                🔌 RS232 Handshake
-              </button>
-            </div>
+          {activeTab === 'signals' && (
+            <SignalMonitor 
+              serialState={serialState}
+            />
+          )}
+        </section>
+      </main>
 
-            {/* Tab Panel Content */}
-            {activeTab === 'terminal' && (
-              <ConsoleTerminal 
-                serialState={serialState}
-                receivedData={receivedData}
-                onSendData={handleSendData}
-                onClearLogs={handleClearLogs}
-              />
-            )}
-            
-            {activeTab === 'diagnostics' && (
-              <EspChipCard 
-                serialState={serialState}
-              />
-            )}
-
-            {activeTab === 'signals' && (
-              <SignalMonitor 
-                serialState={serialState}
-              />
-            )}
-          </section>
-        </main>
-
-        {/* Corporate Anchored Footer */}
-        <DashboardFooter isOnline={isOnline} />
-      </div>
-    </Provider>
+      {/* Corporate Anchored Footer */}
+      <DashboardFooter isOnline={isOnline} />
+    </div>
   );
 }
 

@@ -11,7 +11,7 @@ interface SignalMonitorProps {
 }
 
 const cardStyles = style({
-  backgroundColor: 'gray-50',
+  backgroundColor: 'layer-1',
   borderStyle: 'solid',
   borderWidth: 1,
   borderColor: 'gray-200',

@@ -12,7 +12,7 @@ interface DashboardFooterProps {
 const footerStyles = style({
   marginTop: 32,
   padding: 32,
-  backgroundColor: 'gray-50',
+  backgroundColor: 'layer-1',
   borderStyle: 'solid',
   borderWidth: 1,
   borderColor: 'gray-200',

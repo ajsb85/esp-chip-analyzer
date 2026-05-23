@@ -23,7 +23,7 @@ const headerStyles = style({
   gap: 16,
   paddingX: 24,
   paddingY: 16,
-  backgroundColor: 'gray-50',
+  backgroundColor: 'layer-1',
   borderStyle: 'solid',
   borderWidth: 1,
   borderColor: 'gray-200',
