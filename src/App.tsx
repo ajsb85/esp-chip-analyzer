@@ -10,6 +10,7 @@ import { EspChipCard } from './components/EspChipCard';
 import { ConsoleTerminal } from './components/ConsoleTerminal';
 import { Provider } from '@react-spectrum/s2/Provider';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
+import { Tabs, TabList, Tab, TabPanel } from '@react-spectrum/s2/Tabs';
 
 const appContainerStyles = style({
   maxWidth: 1200,
@@ -50,37 +51,7 @@ const rightColumnStyles = style({
   width: '100%',
 });
 
-const tabListStyles = style({
-  display: 'flex',
-  borderBottomStyle: 'solid',
-  borderBottomWidth: 1,
-  borderBottomColor: 'gray-200',
-  gap: 8,
-  marginBottom: 8,
-});
-
-const tabButtonStyles = style({
-  font: 'body-sm',
-  fontWeight: 'bold',
-  paddingY: 12,
-  paddingX: 16,
-  cursor: 'pointer',
-  backgroundColor: 'transparent',
-  borderStyle: 'none',
-  borderBottomStyle: 'solid',
-  borderBottomWidth: 2,
-  borderBottomColor: 'transparent',
-  color: {
-    default: 'neutral-subdued',
-    _hover: 'neutral',
-  },
-  transition: 'colors',
-});
-
-const activeTabButtonStyles = style({
-  color: 'accent',
-  borderBottomColor: 'accent',
-});
+// Tabs are styled and structured natively by Spectrum S2 components
 
 function App() {
   const [serialState, setSerialState] = useState<SerialConnectionState>(serialManager.getState());
@@ -221,49 +192,36 @@ function App() {
 
         {/* Right Side: Tabbed Workspace */}
         <section className={rightColumnStyles as any}>
-          {/* Tab Switcher Header */}
-          <div className={tabListStyles as any}>
-            <button 
-              onClick={() => setActiveTab('terminal')}
-              className={`${tabButtonStyles} ${activeTab === 'terminal' ? activeTabButtonStyles : ''}`}
-            >
-              📺 Serial Terminal
-            </button>
-            <button 
-              onClick={() => setActiveTab('diagnostics')}
-              className={`${tabButtonStyles} ${activeTab === 'diagnostics' ? activeTabButtonStyles : ''}`}
-            >
-              🔬 Chip Diagnostics
-            </button>
-            <button 
-              onClick={() => setActiveTab('signals')}
-              className={`${tabButtonStyles} ${activeTab === 'signals' ? activeTabButtonStyles : ''}`}
-            >
-              🔌 RS232 Handshake
-            </button>
-          </div>
+          <Tabs 
+            selectedKey={activeTab} 
+            onSelectionChange={(key) => setActiveTab(key as any)}
+            styles={style({ width: '100%' }) as any}
+          >
+            <TabList aria-label="Chip Analyzer Modes">
+              <Tab id="terminal">📺 Serial Terminal</Tab>
+              <Tab id="diagnostics">🔬 Chip Diagnostics</Tab>
+              <Tab id="signals">🔌 RS232 Handshake</Tab>
+            </TabList>
 
-          {/* Tab Panel Content */}
-          {activeTab === 'terminal' && (
-            <ConsoleTerminal 
-              serialState={serialState}
-              receivedData={receivedData}
-              onSendData={handleSendData}
-              onClearLogs={handleClearLogs}
-            />
-          )}
-          
-          {activeTab === 'diagnostics' && (
-            <EspChipCard 
-              serialState={serialState}
-            />
-          )}
-
-          {activeTab === 'signals' && (
-            <SignalMonitor 
-              serialState={serialState}
-            />
-          )}
+            <TabPanel id="terminal">
+              <ConsoleTerminal 
+                serialState={serialState}
+                receivedData={receivedData}
+                onSendData={handleSendData}
+                onClearLogs={handleClearLogs}
+              />
+            </TabPanel>
+            <TabPanel id="diagnostics">
+              <EspChipCard 
+                serialState={serialState}
+              />
+            </TabPanel>
+            <TabPanel id="signals">
+              <SignalMonitor 
+                serialState={serialState}
+              />
+            </TabPanel>
+          </Tabs>
         </section>
       </main>
 
