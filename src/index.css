@@ -63,3 +63,12 @@
 .pulse-orange-anim {
   animation: pulse-orange 1.5s infinite;
 }
+
+/* Force Xterm background and remove borders */
+.xterm-viewport, .xterm-screen, .xterm-container, .xterm {
+  background-color: #111827 !important;
+}
+
+.xterm-rows {
+  color: #F9FAFB !important;
+}
