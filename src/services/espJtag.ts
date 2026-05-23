@@ -123,6 +123,43 @@ export class EspJtag {
   }
 
   /**
+   * Send CMD_REP
+   * Repeats the last command.
+   */
+  public async sendRepeat(repeats: number): Promise<void> {
+    if (!this.device) return;
+    // repeats is encoded into 2 bits in the command: r1 and r0
+    // r1 * 2 + r0 determines how many times it repeats.
+    // the max repeats handled directly by 1 byte is defined by the hardware, but simple repetitions:
+    const r = repeats & 3; // ensure it's max 3 for the command
+    const cmd = 0xC + r;
+    const data = new Uint8Array([cmd]);
+    await this.device.transferOut(this.endpointOut, data);
+  }
+
+  /**
+   * Set IO Pins Directly
+   * VEND_JTAG_SETIO = 1
+   * Format: {11'b0, srst, trst, tck, tms, tdi}
+   */
+  public async setIo(tdi: boolean, tms: boolean, tck: boolean, trst: boolean, srst: boolean): Promise<void> {
+    if (!this.device) return;
+    let val = 0;
+    if (tdi) val |= 1;
+    if (tms) val |= 2;
+    if (tck) val |= 4;
+    if (trst) val |= 8;
+    if (srst) val |= 16;
+    await this.device.controlTransferOut({
+      requestType: 'vendor',
+      recipient: 'device',
+      request: 1, // VEND_JTAG_SETIO
+      value: val,
+      index: 0
+    });
+  }
+
+  /**
    * Read IN endpoint (TDO bits if captured)
    */
   public async readIn(length: number = 64): Promise<Uint8Array | null> {

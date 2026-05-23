@@ -22,61 +22,70 @@ export const EspJtagCard: FC = () => {
   const [clkCap, setClkCap] = useState(false);
   const [inLength, setInLength] = useState('64');
   const [divisor, setDivisor] = useState('0');
+  const [repCount, setRepCount] = useState('1');
+  const [ioTdi, setIoTdi] = useState(false);
+  const [ioTms, setIoTms] = useState(false);
+  const [ioTck, setIoTck] = useState(false);
+  const [ioTrst, setIoTrst] = useState(false);
+  const [ioSrst, setIoSrst] = useState(false);
 
   const addLog = (msg: string) => {
     setLog(prev => [...prev, msg]);
   };
 
-  useEffect(() => {
-    const fetchDevices = async () => {
-      const devices = await espJtag.getPairedDevices();
-      setPairedDevices(devices);
-      if (devices.length > 0) {
-        setSelectedDevice(devices[0].serialNumber || '');
-      }
-    };
-    fetchDevices();
-    
-    // Add event listeners for connection changes
-    const handleConnect = () => fetchDevices();
-    const handleDisconnect = () => fetchDevices();
-    navigator.usb?.addEventListener('connect', handleConnect);
-    navigator.usb?.addEventListener('disconnect', handleDisconnect);
-    return () => {
-      navigator.usb?.removeEventListener('connect', handleConnect);
-      navigator.usb?.removeEventListener('disconnect', handleDisconnect);
-    };
-  }, []);
-
-  const handleConnectNew = async () => {
-    addLog('Requesting new WebUSB JTAG device...');
-    const success = await espJtag.connect();
+  const attemptConnect = async (device?: USBDevice) => {
+    addLog(device ? `Connecting to paired device ${device.productName}...` : 'Requesting new WebUSB JTAG device...');
+    const success = await espJtag.connect(device);
     if (success) {
       setConnected(true);
-      addLog('Connected to ESP USB JTAG interface.');
-      const devices = await espJtag.getPairedDevices();
-      setPairedDevices(devices);
       const dev = espJtag.getDevice();
+      addLog(`Connected to ESP USB JTAG interface (USB ${dev?.usbVersionMajor}.${dev?.usbVersionMinor}).`);
+      
       if (dev && dev.serialNumber) {
+        localStorage.setItem('lastJtagSerial', dev.serialNumber);
         setSelectedDevice(dev.serialNumber);
       }
+      const devices = await espJtag.getPairedDevices();
+      setPairedDevices(devices);
     } else {
       addLog('Failed to connect or device not found.');
     }
   };
 
-  const handleConnectPaired = async () => {
-    const device = pairedDevices.find(d => d.serialNumber === selectedDevice);
-    if (!device) return;
+  useEffect(() => {
+    let mounted = true;
+    const fetchDevices = async () => {
+      const devices = await espJtag.getPairedDevices();
+      if (!mounted) return;
+      setPairedDevices(devices);
+      
+      const lastSerial = localStorage.getItem('lastJtagSerial');
+      const deviceToConnect = devices.find(d => d.serialNumber === lastSerial);
+
+      if (deviceToConnect && !espJtag.isConnected()) {
+        attemptConnect(deviceToConnect);
+      } else if (devices.length > 0) {
+        setSelectedDevice(devices[0].serialNumber || '');
+      }
+    };
+    fetchDevices();
     
-    addLog(`Connecting to paired device ${device.productName}...`);
-    const success = await espJtag.connect(device);
-    if (success) {
-      setConnected(true);
-      addLog('Connected successfully.');
-    } else {
-      addLog('Failed to connect.');
-    }
+    const handleConnect = () => fetchDevices();
+    const handleDisconnect = () => fetchDevices();
+    navigator.usb?.addEventListener('connect', handleConnect);
+    navigator.usb?.addEventListener('disconnect', handleDisconnect);
+    return () => {
+      mounted = false;
+      navigator.usb?.removeEventListener('connect', handleConnect);
+      navigator.usb?.removeEventListener('disconnect', handleDisconnect);
+    };
+  }, []);
+
+  const handleConnectNew = () => attemptConnect();
+
+  const handleConnectPaired = () => {
+    const device = pairedDevices.find(d => d.serialNumber === selectedDevice);
+    if (device) attemptConnect(device);
   };
 
   const handleDisconnect = async () => {
@@ -157,6 +166,29 @@ export const EspJtagCard: FC = () => {
     }
   };
 
+  const handleSendRepeat = async () => {
+    if (!connected) return;
+    try {
+      const reps = parseInt(repCount, 10);
+      addLog(`Sending CMD_REP (${reps})...`);
+      await espJtag.sendRepeat(reps);
+    } catch (e: any) {
+      addLog('Error: ' + e.message);
+    }
+  };
+
+  const handleSetIo = async () => {
+    if (!connected) return;
+    try {
+      addLog(`Sending VEND_JTAG_SETIO (TDI=${ioTdi}, TMS=${ioTms}, TCK=${ioTck}, TRST=${ioTrst}, SRST=${ioSrst})...`);
+      await espJtag.setIo(ioTdi, ioTms, ioTck, ioTrst, ioSrst);
+    } catch (e: any) {
+      addLog('Error: ' + e.message);
+    }
+  };
+
+  const handleClearLog = () => setLog([]);
+
   return (
     <div className={style({
       backgroundColor: 'layer-1',
@@ -228,16 +260,40 @@ export const EspJtagCard: FC = () => {
             <Button variant="primary" onPress={handleTestReset}>Toggle Reset</Button>
             <Button variant="primary" onPress={handleFlush}>Flush IN</Button>
             <Button variant="primary" onPress={handleGetTdo}>Get TDO</Button>
+            <Button variant="secondary" onPress={handleClearLog}>Clear Log</Button>
           </div>
 
           {/* Clock Command */}
           <div className={style({ display: 'flex', alignItems: 'end', gap: 12, backgroundColor: 'gray-50', padding: 12, borderRadius: 'lg', borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200' }) as any}>
-            <div className={style({ display: 'flex', gap: 16, flex: 1 }) as any}>
+            <div className={style({ display: 'flex', gap: 16, flex: 1, flexWrap: 'wrap' }) as any}>
               <Switch isSelected={clkTms} onChange={setClkTms}><Text>TMS</Text></Switch>
               <Switch isSelected={clkTdi} onChange={setClkTdi}><Text>TDI</Text></Switch>
               <Switch isSelected={clkCap} onChange={setClkCap}><Text>CAP (Capture)</Text></Switch>
             </div>
             <Button variant="primary" onPress={handleClock}>Send CMD_CLK</Button>
+          </div>
+
+          {/* Repeat Command */}
+          <div className={style({ display: 'flex', alignItems: 'end', gap: 12, backgroundColor: 'gray-50', padding: 12, borderRadius: 'lg', borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200' }) as any}>
+            <TextField 
+              label="Repeat Count" 
+              value={repCount} 
+              onChange={setRepCount}
+              styles={style({ width: 120 }) as any}
+            />
+            <Button variant="primary" onPress={handleSendRepeat}>Send CMD_REP</Button>
+          </div>
+
+          {/* Direct IO Control */}
+          <div className={style({ display: 'flex', alignItems: 'end', gap: 12, backgroundColor: 'gray-50', padding: 12, borderRadius: 'lg', borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200' }) as any}>
+            <div className={style({ display: 'flex', gap: 16, flex: 1, flexWrap: 'wrap' }) as any}>
+              <Switch isSelected={ioTdi} onChange={setIoTdi}><Text>TDI</Text></Switch>
+              <Switch isSelected={ioTms} onChange={setIoTms}><Text>TMS</Text></Switch>
+              <Switch isSelected={ioTck} onChange={setIoTck}><Text>TCK</Text></Switch>
+              <Switch isSelected={ioTrst} onChange={setIoTrst}><Text>TRST</Text></Switch>
+              <Switch isSelected={ioSrst} onChange={setIoSrst}><Text>SRST</Text></Switch>
+            </div>
+            <Button variant="primary" onPress={handleSetIo}>Send SETIO</Button>
           </div>
 
           {/* Read IN Endpoint */}
