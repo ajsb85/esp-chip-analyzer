@@ -12,6 +12,7 @@ import CodeIcon from '@react-spectrum/s2/icons/Code';
 import SearchIcon from '@react-spectrum/s2/icons/Search';
 import DataIcon from '@react-spectrum/s2/icons/Data';
 import { espJtag } from '../services/espJtag';
+import { TerminalView } from './TerminalView';
 
 export const JtagDebuggerCard: FC = () => {
   const [activeTab, setActiveTab] = useState('execution');
@@ -41,7 +42,7 @@ export const JtagDebuggerCard: FC = () => {
   ]);
 
   const logGdb = (cmd: string, response: string) => {
-    setGdbLog(prev => [...prev, `(gdb) ${cmd}`, response]);
+    setGdbLog(prev => [...prev, `\x1b[38;2;96;165;250m(gdb) ${cmd}\x1b[0m`, response]);
   };
 
   const handleGdbCommand = (cmd: string) => {
@@ -199,24 +200,7 @@ export const JtagDebuggerCard: FC = () => {
           <div className={style({ display: 'grid', gridTemplateColumns: { default: '1fr', lg: '1fr 250px' }, gap: 16, paddingY: 12 }) as any}>
             
             <div className={style({ display: 'flex', flexDirection: 'column', gap: 12 }) as any}>
-              <div className={style({
-                backgroundColor: 'gray-900',
-                color: 'gray-50',
-                padding: 12,
-                borderRadius: 'lg',
-                fontFamily: 'code',
-                font: 'detail-sm',
-                height: 300,
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
-                whiteSpace: 'pre-wrap'
-              }) as any}>
-                {gdbLog.map((line, i) => (
-                  <div key={i} style={{ color: line.startsWith('(gdb)') ? '#60A5FA' : '#F9FAFB' }}>{line}</div>
-                ))}
-              </div>
+              <TerminalView lines={gdbLog} height={300} />
               <div className={style({ display: 'flex', gap: 8 }) as any}>
                 <TextField 
                   aria-label="GDB Command"

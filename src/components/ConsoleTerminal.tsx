@@ -2,26 +2,20 @@ import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 import type { SerialConnectionState } from '../services/serialManager';
 import CodeIcon from '@react-spectrum/s2/icons/Code';
-import DataIcon from '@react-spectrum/s2/icons/Data';
 import { Button } from '@react-spectrum/s2/Button';
 import { Picker, PickerItem } from '@react-spectrum/s2/Picker';
 import { TextField } from '@react-spectrum/s2/TextField';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
-import { Text } from "@react-spectrum/s2";
-import DownloadIcon from '@react-spectrum/s2/icons/Download';
 import DeleteIcon from '@react-spectrum/s2/icons/Delete';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import '@xterm/xterm/css/xterm.css';
 
 interface ConsoleTerminalProps {
   serialState: SerialConnectionState;
   receivedData: Uint8Array[];
   onSendData: (data: string) => void;
   onClearLogs: () => void;
-}
-
-interface LogLine {
-  text: string;
-  type: 'info' | 'warning' | 'error' | 'debug' | 'system' | 'raw';
-  timestamp: string;
 }
 
 const cardStyles = style({
@@ -69,128 +63,71 @@ const terminalHeaderStyles = style({
   borderBottomColor: 'gray-200',
 });
 
-const screenStyles = style({
-  // Force background: White for Light mode, Black for Dark mode
-  backgroundColor: {
-    default: 'gray-50',
-    _dark: 'gray-1000'
-  },
-  // Force text: Black for Light mode, White for Dark mode
-  color: {
-    default: 'gray-1000',
-    _dark: 'gray-50'
-  },
-  fontFamily: 'code',
-  font: 'body-xs',
-  padding: 16,
-  height: 350,
-  overflowY: 'auto',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-  borderStyle: 'solid',
-  borderWidth: 1,
-  borderColor: 'gray-200',
-});
-
-const lineTimeStyles = style({
-  color: 'neutral-subdued',
-  marginRight: 8,
-  font: 'body-xs',
-  fontFamily: 'code',
-  userSelect: 'none',
-});
-
-const errorLineStyles = style({ color: 'red-600', fontFamily: 'code' });
-const warningLineStyles = style({ color: 'orange-600', fontFamily: 'code' });
-const infoLineStyles = style({ color: 'green-600', fontFamily: 'code' });
-const debugLineStyles = style({ color: 'blue-600', fontFamily: 'code' });
-const systemLineStyles = style({ color: 'gray-600', fontFamily: 'code', fontWeight: 'bold' });
-const defaultLineStyles = style({ 
-  color: {
-    default: 'black',
-    _dark: 'white'
-  }, 
-  fontFamily: 'code' 
-});
-
-const getLineStyles = (type: LogLine['type']) => {
-  switch (type) {
-    case 'error': return errorLineStyles;
-    case 'warning': return warningLineStyles;
-    case 'info': return infoLineStyles;
-    case 'debug': return debugLineStyles;
-    case 'system': return systemLineStyles;
-    default: return defaultLineStyles;
-  }
-};
-
-const IDF_LOG_REGEX = /^(I|W|E|D|V) \([\d.: -]+\)\s+(.*)$/;
-
 export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
   serialState,
   receivedData,
   onSendData,
   onClearLogs
 }) => {
-  const [logLines, setLogLines] = useState<LogLine[]>([]);
-  const [filterLevel, setFilterLevel] = useState<'all' | 'info' | 'warning' | 'error' | 'debug'>('all');
   const [inputVal, setInputVal] = useState<string>('');
-  const [eol, setEol] = useState<'lf' | 'crlf' | 'cr' | 'none'>('lf');
-  const screenRef = useRef<HTMLDivElement>(null);
+  const [eol, setEol] = useState<'lf' | 'crlf' | 'cr' | 'none'>('crlf');
   
-  const textDecoderRef = useRef(new TextDecoder('utf-8'));
-  const bufferRef = useRef<string>('');
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const xtermRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
+  const prevDataLengthRef = useRef(0);
 
-  // Process raw serial data as it streams in
   useEffect(() => {
+    if (!terminalRef.current) return;
+
+    const term = new Terminal({
+      theme: {
+        background: '#111827', // gray-900
+        foreground: '#F9FAFB', // gray-50
+      },
+      fontFamily: 'monospace',
+      fontSize: 14,
+      disableStdin: true,
+      cursorBlink: false,
+    });
+    
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+
+    term.open(terminalRef.current);
+    fitAddon.fit();
+
+    xtermRef.current = term;
+    fitAddonRef.current = fitAddon;
+
+    const resizeObserver = new ResizeObserver(() => {
+      fitAddon.fit();
+    });
+    resizeObserver.observe(terminalRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+      term.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!xtermRef.current) return;
+    
     if (receivedData.length === 0) {
-      setLogLines([]);
-      bufferRef.current = '';
+      xtermRef.current.clear();
+      prevDataLengthRef.current = 0;
       return;
     }
 
-    const latestChunk = receivedData[receivedData.length - 1];
-    const decoded = textDecoderRef.current.decode(latestChunk, { stream: true });
-    bufferRef.current += decoded;
-
-    const lines = bufferRef.current.split(/\r?\n/);
-    bufferRef.current = lines.pop() || '';
-
-    if (lines.length > 0) {
-      const parsedLines = lines.map(line => {
-        // eslint-disable-next-line no-control-regex
-        const cleaned = line.replace(/\x1b\[[0-9;]*m/g, ''); // strip ansi codes
-        const match = cleaned.match(IDF_LOG_REGEX);
-        let type: LogLine['type'] = 'raw';
-        
-        if (match) {
-          const level = match[1];
-          if (level === 'E') type = 'error';
-          else if (level === 'W') type = 'warning';
-          else if (level === 'I') type = 'info';
-          else if (level === 'D') type = 'debug';
-        } else if (line.includes('[DEVICE LOST]') || line.includes('[RECONNECT]') || line.includes('[SERIAL]')) {
-          type = 'system';
-        }
-
-        return {
-          text: line,
-          type,
-          timestamp: new Date().toLocaleTimeString()
-        };
+    if (receivedData.length > prevDataLengthRef.current) {
+      const newChunks = receivedData.slice(prevDataLengthRef.current);
+      newChunks.forEach(chunk => {
+        xtermRef.current?.write(chunk);
       });
-
-      setLogLines(prev => [...prev, ...parsedLines].slice(-1500));
+      prevDataLengthRef.current = receivedData.length;
     }
   }, [receivedData]);
-
-  // Scroll to bottom on updates
-  useEffect(() => {
-    if (screenRef.current) {
-      screenRef.current.scrollTop = screenRef.current.scrollHeight;
-    }
-  }, [logLines]);
 
   const handleSend = () => {
     if (!inputVal) return;
@@ -200,36 +137,12 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
     else if (eol === 'cr') suffix = '\r';
     
     onSendData(inputVal + suffix);
-
-    // Append user echo line to terminal
-    setLogLines(prev => [...prev, {
-      text: `> ${inputVal}`,
-      type: 'system',
-      timestamp: new Date().toLocaleTimeString()
-    }]);
+    
+    // Echo locally for clarity (optional, often serial bridges echo back anyway)
+    xtermRef.current?.writeln(`\x1b[32m> ${inputVal}\x1b[0m`);
 
     setInputVal('');
   };
-
-  const handleDownloadLog = () => {
-    const content = logLines.map(line => `[${line.timestamp}] ${line.text}`).join('\n');
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `esp_diag_log_${new Date().toISOString().slice(0, 10)}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const filteredLines = logLines.filter(line => {
-    if (filterLevel === 'all') return true;
-    if (filterLevel === 'error') return line.type === 'error';
-    if (filterLevel === 'warning') return line.type === 'warning' || line.type === 'error';
-    if (filterLevel === 'info') return line.type === 'info' || line.type === 'warning' || line.type === 'error';
-    if (filterLevel === 'debug') return true;
-    return true;
-  });
 
   return (
     <div className={cardStyles as any}>
@@ -240,20 +153,6 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
 
         {/* Toolbar controls */}
         <div className={style({ display: 'flex', gap: 8, alignItems: 'end', flexWrap: 'wrap' }) as any}>
-          {/* Level Filter */}
-          <Picker 
-            label="Log Level" 
-            value={filterLevel} 
-            onSelectionChange={(val) => setFilterLevel(val as any)}
-            size="S"
-          >
-            <PickerItem id="all">Show All Raw</PickerItem>
-            <PickerItem id="debug">Verbose [D]</PickerItem>
-            <PickerItem id="info">Info [I] + Above</PickerItem>
-            <PickerItem id="warning">Warning [W] + Above</PickerItem>
-            <PickerItem id="error">Errors Only [E]</PickerItem>
-          </Picker>
-
           {/* EOL Selector */}
           <Picker 
             label="EOL Terminator" 
@@ -270,16 +169,6 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
           <Button 
             variant="secondary" 
             size="S" 
-            onPress={handleDownloadLog} 
-            isDisabled={logLines.length === 0}
-          >
-            <DownloadIcon />
-            Export Log
-          </Button>
-
-          <Button 
-            variant="secondary" 
-            size="S" 
             onPress={onClearLogs}
           >
             <DeleteIcon />
@@ -288,39 +177,21 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
         </div>
       </div>
 
-      {/* Scrollable screen */}
       <div className={terminalWrapperStyles as any}>
         <div className={terminalHeaderStyles as any}>
-          <span>COM PORT MONITOR</span>
-          <span>{filteredLines.length.toLocaleString()} lines shown</span>
+          <span>COM PORT MONITOR (XTERM)</span>
         </div>
         
-        <div className={screenStyles as any} ref={screenRef}>
-          {filteredLines.length === 0 ? (
-            <div className={style({ 
-              margin: 'auto', 
-              color: 'neutral-subdued', 
-              font: 'body-sm', 
-              textAlign: 'center',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 8
-            }) as any}>
-              <DataIcon /> 
-              <Text>Console Idle. Ready to receive serial stream...</Text>
-            </div>
-          ) : (
-            filteredLines.map((line, idx) => (
-              <div key={idx} className={getLineStyles(line.type) as any}>
-                <span className={lineTimeStyles as any}>
-                  [{line.timestamp}]
-                </span>
-                {line.text}
-              </div>
-            ))
-          )}
-        </div>
+        {/* XTerm Container */}
+        <div 
+          ref={terminalRef} 
+          className={style({
+            backgroundColor: 'gray-900',
+            padding: 16,
+            height: 350,
+            overflow: 'hidden'
+          }) as any}
+        />
 
         {/* Command bar input form */}
         <form 
