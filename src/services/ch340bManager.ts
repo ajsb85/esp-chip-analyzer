@@ -1,32 +1,85 @@
-export interface CH340BConfigData {
+export interface CH34xConfig {
+  chipType: 'CH340' | 'CH343';
+  sig: number;
+  mode: number;
+  cfg: number;
+  wp: number;
   vid: number;
   pid: number;
+  bcd?: number;       // CH343 only
+  power: number;      // Max Power in mA (raw value * 2)
+  attributes?: number;// CH343 only
   serialNumber: string;
   productString: string;
-  rawBytes?: {
-    vidBytes: number[];
-    pidBytes: number[];
-    serialBytes: number[];
-    productBytes: number[];
-  };
+  manufacturerString?: string; // CH343 only
+  rawBytes: Uint8Array;
 }
 
 class CH340BManager {
   /**
-   * Reads the EEPROM configuration data from a connected CH340B chip.
+   * Helper to decode UTF-16LE bytes to standard Javascript string
+   */
+  private decodeUTF16LE(bytes: number[]): string {
+    let str = '';
+    for (let i = 0; i < bytes.length; i += 2) {
+      if (i + 1 < bytes.length) {
+        const charCode = bytes[i] | (bytes[i + 1] << 8);
+        if (charCode === 0) break; // Null terminator
+        str += String.fromCharCode(charCode);
+      }
+    }
+    return str;
+  }
+
+  /**
+   * Helper to decode a standard USB string descriptor block
+   */
+  private decodeDescriptorString(rawBytes: Uint8Array, startOffset: number, maxLength: number): string {
+    const len = rawBytes[startOffset];
+    if (len < 2 || len > maxLength) return '';
+    const type = rawBytes[startOffset + 1];
+    if (type !== 0x03) return ''; // String descriptor type is always 0x03
+    
+    const charBytes: number[] = [];
+    const endOffset = startOffset + Math.min(len, maxLength);
+    for (let i = startOffset + 2; i < endOffset; i++) {
+      charBytes.push(rawBytes[i]);
+    }
+    return this.decodeUTF16LE(charBytes);
+  }
+
+  /**
+   * Helper to encode a string into standard USB string descriptor block
+   */
+  private encodeDescriptorString(str: string, maxLength: number): Uint8Array {
+    const maxCharBytes = maxLength - 2;
+    const unicodeBytes: number[] = [];
+    for (let i = 0; i < str.length; i++) {
+      const charCode = str.charCodeAt(i);
+      unicodeBytes.push(charCode & 0xFF);
+      unicodeBytes.push((charCode >> 8) & 0xFF);
+    }
+    const truncatedBytes = unicodeBytes.slice(0, maxCharBytes);
+    const block = new Uint8Array(maxLength);
+    block[0] = truncatedBytes.length + 2;
+    block[1] = 0x03;
+    block.set(truncatedBytes, 2);
+    return block;
+  }
+
+  /**
+   * Reads the EEPROM configuration data from a connected WCH chip (CH340B or CH343/CH9102).
    * Assumes the port is already opened at 300 baud.
    */
-  public async readConfig(port: SerialPort): Promise<CH340BConfigData> {
+  public async readConfig(
+    port: SerialPort,
+    onProgress?: (current: number, total: number) => void
+  ): Promise<CH34xConfig> {
     // 1. Establish RTS & DTR lines for programming mode
     await port.setSignals({ dataTerminalReady: true, requestToSend: true });
 
     const writer = port.writable!.getWriter();
     const reader = port.readable!.getReader();
-
-    const vidBytes: number[] = [];
-    const pidBytes: number[] = [];
-    const serialBytes: number[] = [];
-    const productBytes: number[] = [];
 
     try {
       // Helper function to read a single byte from a register address with a timeout
@@ -38,7 +91,7 @@ class CH340BManager {
         const timeoutPromise = new Promise<never>((_, reject) => {
           timeoutId = setTimeout(() => {
             reject(new Error(`Timeout waiting for response from chip at register 0x${addr.toString(16).toUpperCase()}`));
-          }, 800); // 800ms timeout per register query
+          }, 300); // 300ms timeout per register query is ample at 300 baud
         });
 
         try {
@@ -58,70 +111,88 @@ class CH340BManager {
         }
       };
 
-      // Read VID at 0x04 (LSB) and 0x05 (MSB)
-      const vidLsb = await readByte(0x04);
-      vidBytes.push(vidLsb);
-      const vidMsb = await readByte(0x05);
-      vidBytes.push(vidMsb);
-      const vid = (vidMsb << 8) | vidLsb;
+      // 1. Read signature byte at 0x00 to detect chip generation
+      const sig = await readByte(0x00);
+      let chipType: 'CH340' | 'CH343' = 'CH340';
+      let totalBytes = 64;
 
-      // Read PID at 0x06 (LSB) and 0x07 (MSB)
-      const pidLsb = await readByte(0x06);
-      pidBytes.push(pidLsb);
-      const pidMsb = await readByte(0x07);
-      pidBytes.push(pidMsb);
-      const pid = (pidMsb << 8) | pidLsb;
-
-      // Read Serial Number at 0x10 to 0x17 (8 bytes ASCII)
-      for (let i = 0x10; i <= 0x17; i++) {
-        const b = await readByte(i);
-        serialBytes.push(b);
+      if (sig === 0x53) {
+        chipType = 'CH343';
+        totalBytes = 120; // CH343 config block is 120 bytes
+      } else if (sig === 0x5B) {
+        chipType = 'CH340';
+        totalBytes = 64; // CH340B config block is 64 bytes
+      } else {
+        // Fallback or unknown, try to read 64 bytes
+        chipType = 'CH340';
+        totalBytes = 64;
       }
-      
-      // Decode serial bytes as ASCII (printable chars only)
+
+      const rawBytes = new Uint8Array(totalBytes);
+      rawBytes[0] = sig;
+
+      if (onProgress) onProgress(1, totalBytes);
+
+      // Read remaining bytes sequentially
+      for (let addr = 1; addr < totalBytes; addr++) {
+        rawBytes[addr] = await readByte(addr);
+        if (onProgress) onProgress(addr + 1, totalBytes);
+      }
+
+      // Decode structures according to chip layout
+      const mode = rawBytes[0x01];
+      const cfg = rawBytes[0x02];
+      const wp = rawBytes[0x03];
+      const vid = rawBytes[0x04] | (rawBytes[0x05] << 8);
+      const pid = rawBytes[0x06] | (rawBytes[0x07] << 8);
+      const power = rawBytes[0x0A] * 2; // Power in mA
+
       let serialNumber = '';
-      if (serialBytes[0] > 0x20 && serialBytes[0] < 0x7F) {
-        serialNumber = String.fromCharCode(...serialBytes.filter(b => b >= 0x20 && b <= 0x7E));
-      }
-
-      // Read Product String Length at 0x1A
-      const prodStringLen = await readByte(0x1A);
-      productBytes.push(prodStringLen);
-      
-      // Read Product String descriptor tag at 0x1B (usually 0x03)
-      const descriptorTag = await readByte(0x1B);
-      productBytes.push(descriptorTag);
-
-      // Read Product String bytes (from 0x1C to 0x3F)
-      const maxAddr = Math.min(0x3F, 0x1C + (prodStringLen - 3)); // prodStringLen includes the len byte and the tag byte
-      for (let i = 0x1C; i <= maxAddr; i++) {
-        const b = await readByte(i);
-        productBytes.push(b);
-      }
-
-      // Decode Product String as UTF-16LE (Unicode)
       let productString = '';
-      for (let i = 2; i < productBytes.length; i += 2) {
-        if (i + 1 < productBytes.length) {
-          const charCode = productBytes[i] | (productBytes[i + 1] << 8);
-          if (charCode !== 0) {
-            productString += String.fromCharCode(charCode);
+      let manufacturerString = '';
+      let bcd: number | undefined;
+      let attributes: number | undefined;
+
+      if (chipType === 'CH343') {
+        // CH343: offset 0x08-0x09 is BCD version, 0x0B is attributes
+        bcd = rawBytes[0x08] | (rawBytes[0x09] << 8);
+        attributes = rawBytes[0x0B];
+
+        // Decoders for String Descriptors
+        serialNumber = this.decodeDescriptorString(rawBytes, 0x10, 24);
+        productString = this.decodeDescriptorString(rawBytes, 0x28, 40);
+        manufacturerString = this.decodeDescriptorString(rawBytes, 0x50, 40);
+      } else {
+        // CH340B: offset 0x10-0x17 is 8-byte ASCII serial number
+        const asciiBytes: number[] = [];
+        for (let i = 0x10; i <= 0x17; i++) {
+          if (rawBytes[i] >= 0x20 && rawBytes[i] <= 0x7E) {
+            asciiBytes.push(rawBytes[i]);
           }
         }
+        serialNumber = String.fromCharCode(...asciiBytes);
+
+        // Product String: descriptor length at 0x1A, type at 0x1B, chars from 0x1C to 0x3F (max 38 bytes)
+        productString = this.decodeDescriptorString(rawBytes, 0x1A, 38);
       }
 
       return {
+        chipType,
+        sig,
+        mode,
+        cfg,
+        wp,
         vid,
         pid,
+        bcd,
+        power,
+        attributes,
         serialNumber,
         productString,
-        rawBytes: {
-          vidBytes,
-          pidBytes,
-          serialBytes,
-          productBytes
-        }
+        manufacturerString,
+        rawBytes
       };
+
     } finally {
       writer.releaseLock();
       reader.releaseLock();
@@ -129,10 +200,14 @@ class CH340BManager {
   }
 
   /**
-   * Writes the EEPROM configuration data to a connected CH340B chip.
+   * Writes the EEPROM configuration data to a connected CH340B or CH343/CH9102 chip.
    * Assumes the port is already opened at 300 baud.
    */
-  public async writeConfig(port: SerialPort, data: CH340BConfigData): Promise<void> {
+  public async writeConfig(
+    port: SerialPort,
+    data: Omit<CH34xConfig, 'rawBytes'>,
+    onProgress?: (current: number, total: number) => void
+  ): Promise<void> {
     await port.setSignals({ dataTerminalReady: true, requestToSend: true });
 
     const writer = port.writable!.getWriter();
@@ -141,50 +216,60 @@ class CH340BManager {
       const writeByte = async (addr: number, val: number): Promise<void> => {
         const cmd = new Uint8Array([0x40, 0xA0, addr, val]);
         await writer.write(cmd);
-        // Short delay between byte writes for stable EEPROM latching
+        // Delay between byte writes for stable EEPROM latching
         await new Promise(resolve => setTimeout(resolve, 40));
       };
 
-      // 1. Write the magic unlock latch to enable EEPROM writes
-      await writeByte(0x00, 0x5B);
+      const totalBytes = data.chipType === 'CH343' ? 120 : 64;
+      const buffer = new Uint8Array(totalBytes);
 
-      // 2. Write VID (0x04 = LSB, 0x05 = MSB)
-      await writeByte(0x04, data.vid & 0xFF);
-      await writeByte(0x05, (data.vid >> 8) & 0xFF);
+      // Reconstruct buffer based on chip profile
+      buffer[0x00] = data.sig;
+      buffer[0x01] = data.mode;
+      buffer[0x02] = data.cfg;
+      buffer[0x03] = data.wp;
+      buffer[0x04] = data.vid & 0xFF;
+      buffer[0x05] = (data.vid >> 8) & 0xFF;
+      buffer[0x06] = data.pid & 0xFF;
+      buffer[0x07] = (data.pid >> 8) & 0xFF;
+      buffer[0x0A] = Math.min(255, Math.floor(data.power / 2)); // power in 2mA steps
 
-      // 3. Write PID (0x06 = LSB, 0x07 = MSB)
-      await writeByte(0x06, data.pid & 0xFF);
-      await writeByte(0x07, (data.pid >> 8) & 0xFF);
+      if (data.chipType === 'CH343') {
+        // CH343 specifics
+        buffer[0x08] = (data.bcd || 0x0100) & 0xFF;
+        buffer[0x09] = ((data.bcd || 0x0100) >> 8) & 0xFF;
+        buffer[0x0B] = data.attributes || 0x80; // Default: bus powered
 
-      // 4. Write Serial Number (8 bytes max, padded with 0x00 or spaces)
-      const serialBuffer = new Uint8Array(8);
-      const encodedSerial = new TextEncoder().encode(data.serialNumber.slice(0, 8));
-      serialBuffer.set(encodedSerial);
-      for (let i = 0; i < 8; i++) {
-        await writeByte(0x10 + i, serialBuffer[i]);
+        // Encode string descriptors
+        const serialBlock = this.encodeDescriptorString(data.serialNumber, 24);
+        buffer.set(serialBlock, 0x10);
+
+        const productBlock = this.encodeDescriptorString(data.productString, 40);
+        buffer.set(productBlock, 0x28);
+
+        const manufacturerBlock = this.encodeDescriptorString(data.manufacturerString || '', 40);
+        buffer.set(manufacturerBlock, 0x50);
+      } else {
+        // CH340B specifics
+        // Serial: 8 bytes raw ASCII
+        const serialAscii = new Uint8Array(8);
+        const encodedSerial = new TextEncoder().encode(data.serialNumber.slice(0, 8));
+        serialAscii.set(encodedSerial);
+        buffer.set(serialAscii, 0x10);
+
+        // Product String: 38 bytes max starting at 0x1A
+        const productBlock = this.encodeDescriptorString(data.productString, 38);
+        buffer.set(productBlock, 0x1A);
       }
 
-      // 5. Write Product String (Unicode/UTF-16LE, up to 36 bytes)
-      const unicodeChars: number[] = [];
-      for (let i = 0; i < data.productString.length; i++) {
-        const charCode = data.productString.charCodeAt(i);
-        unicodeChars.push(charCode & 0xFF);
-        unicodeChars.push((charCode >> 8) & 0xFF);
-      }
-      
-      // Limit to max 36 bytes (18 characters)
-      const truncatedUnicode = unicodeChars.slice(0, 36);
+      // Write signature first to unlock subsequent writes
+      await writeByte(0x00, data.sig);
+      if (onProgress) onProgress(1, totalBytes);
 
-      // First descriptor byte: length (characters bytes + 2 bytes header)
-      await writeByte(0x1A, truncatedUnicode.length + 2);
-      // Second descriptor byte: type (0x03 for String Descriptor)
-      await writeByte(0x1B, 0x03);
-
-      // Write UTF-16LE string bytes
-      const prodStringBuffer = new Uint8Array(36);
-      prodStringBuffer.set(truncatedUnicode);
-      for (let i = 0; i < 36; i++) {
-        await writeByte(0x1C + i, prodStringBuffer[i]);
+      // Write all other registers
+      for (let addr = 1; addr < totalBytes; addr++) {
+        await writeByte(addr, buffer[addr]);
+        if (onProgress) onProgress(addr + 1, totalBytes);
       }
 
     } finally {

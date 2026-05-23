@@ -11,6 +11,7 @@ import { serialManager } from '../services/serialManager';
 import { ch340bManager } from '../services/ch340bManager';
 import { TextField } from '@react-spectrum/s2/TextField';
 import { Picker, PickerItem } from '@react-spectrum/s2/Picker';
+import { Switch } from '@react-spectrum/s2/Switch';
 
 interface UsbConverterCardProps {
   serialState: SerialConnectionState;
@@ -277,19 +278,25 @@ export const UsbConverterCard: FC<UsbConverterCardProps> = ({ serialState }) => 
   // Card tabs: diagnostics (contains EEPROM), toolchain, reference
   const [cardTab, setCardTab] = useState<'diagnostics' | 'toolchain' | 'reference'>('diagnostics');
 
-  // CH340B programming utility states
-  const [ch340bConfig, setCh340bConfig] = useState<{
+  // WCH CH34x programming utility states
+  interface CH34xFormState {
+    chipType: 'CH340' | 'CH343';
+    sig: number;
+    mode: number;
+    cfg: number;
+    wp: number;
     vid: string;
     pid: string;
+    bcd?: string;
+    power: string;
+    attributes?: number;
     serialNumber: string;
     productString: string;
-    rawBytes?: {
-      vidBytes: number[];
-      pidBytes: number[];
-      serialBytes: number[];
-      productBytes: number[];
-    };
-  } | null>(null);
+    manufacturerString?: string;
+    rawBytes: Uint8Array;
+  }
+  const [ch340bConfig, setCh340bConfig] = useState<CH34xFormState | null>(null);
+  const [ch34xProgress, setCh34xProgress] = useState<{ current: number; total: number } | null>(null);
   const [ch340bScanning, setCh340bScanning] = useState(false);
   const [ch340bWriting, setCh340bWriting] = useState(false);
   const [ch340bMessage, setCh340bMessage] = useState<{ type: 'info' | 'error' | 'success'; text: string } | null>(null);
@@ -347,23 +354,36 @@ export const UsbConverterCard: FC<UsbConverterCardProps> = ({ serialState }) => 
   const handleReadCh340bConfig = async () => {
     setCh340bScanning(true);
     setCh340bMessage(null);
+    setCh34xProgress(null);
     try {
       const config = await serialManager.runTemporary300BaudAction(async (port) => {
-        return await ch340bManager.readConfig(port);
+        return await ch340bManager.readConfig(port, (current, total) => {
+          setCh34xProgress({ current, total });
+        });
       });
       setCh340bConfig({
+        chipType: config.chipType,
+        sig: config.sig,
+        mode: config.mode,
+        cfg: config.cfg,
+        wp: config.wp,
         vid: `0x${config.vid.toString(16).toUpperCase().padStart(4, '0')}`,
         pid: `0x${config.pid.toString(16).toUpperCase().padStart(4, '0')}`,
+        bcd: config.bcd !== undefined ? `0x${config.bcd.toString(16).toUpperCase().padStart(4, '0')}` : undefined,
+        power: config.power.toString(),
+        attributes: config.attributes,
         serialNumber: config.serialNumber,
         productString: config.productString,
+        manufacturerString: config.manufacturerString,
         rawBytes: config.rawBytes
       });
-      setCh340bMessage({ type: 'success', text: 'CH340B EEPROM configuration loaded successfully!' });
+      setCh340bMessage({ type: 'success', text: `WCH ${config.chipType} EEPROM configuration loaded successfully!` });
     } catch (err: any) {
-      console.error('[CH340B] Read error:', err);
+      console.error('[WCH Config] Read error:', err);
       setCh340bMessage({ type: 'error', text: `Failed to read EEPROM: ${err.message || err}` });
     } finally {
       setCh340bScanning(false);
+      setCh34xProgress(null);
     }
   };
 
@@ -376,31 +396,51 @@ export const UsbConverterCard: FC<UsbConverterCardProps> = ({ serialState }) => 
       setCh340bMessage({ type: 'error', text: 'Invalid hexadecimal structure for VID or PID (must be like 0x1A86 or 1A86)' });
       return;
     }
+    if (ch340bConfig.chipType === 'CH343' && ch340bConfig.bcd && !hexPattern.test(ch340bConfig.bcd)) {
+      setCh340bMessage({ type: 'error', text: 'Invalid hexadecimal structure for BCD version (must be like 0x0100 or 0100)' });
+      return;
+    }
 
     setCh340bWriting(true);
     setCh340bMessage(null);
+    setCh34xProgress(null);
     try {
       const vidNum = parseInt(ch340bConfig.vid, 16);
       const pidNum = parseInt(ch340bConfig.pid, 16);
-      if (isNaN(vidNum) || isNaN(pidNum)) {
-        throw new Error('Invalid Hex value for VID or PID (e.g. 0x1A86)');
+      const powerNum = parseInt(ch340bConfig.power, 10);
+      const bcdNum = ch340bConfig.bcd ? parseInt(ch340bConfig.bcd, 16) : undefined;
+
+      if (isNaN(vidNum) || isNaN(pidNum) || isNaN(powerNum)) {
+        throw new Error('Invalid numeric values for VID, PID, or Max Power.');
       }
 
       await serialManager.runTemporary300BaudAction(async (port) => {
         await ch340bManager.writeConfig(port, {
+          chipType: ch340bConfig.chipType,
+          sig: ch340bConfig.sig,
+          mode: ch340bConfig.mode,
+          cfg: ch340bConfig.cfg,
+          wp: ch340bConfig.wp,
           vid: vidNum,
           pid: pidNum,
+          power: powerNum,
+          bcd: bcdNum,
+          attributes: ch340bConfig.attributes,
           serialNumber: ch340bConfig.serialNumber,
           productString: ch340bConfig.productString,
+          manufacturerString: ch340bConfig.manufacturerString,
+        }, (current, total) => {
+          setCh34xProgress({ current, total });
         });
       });
-      setCh340bMessage({ type: 'success', text: 'CH340B EEPROM written successfully! Re-plug converter to apply.' });
+      setCh340bMessage({ type: 'success', text: `WCH ${ch340bConfig.chipType} EEPROM written successfully! Re-plug converter to apply.` });
       await fetchDetails();
     } catch (err: any) {
-      console.error('[CH340B] Write error:', err);
+      console.error('[WCH Config] Write error:', err);
       setCh340bMessage({ type: 'error', text: `Failed to write EEPROM: ${err.message || err}` });
     } finally {
       setCh340bWriting(false);
+      setCh34xProgress(null);
     }
   };
 
@@ -636,10 +676,10 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                 }) as any}>
                   <div className={style({ display: 'flex', flexDirection: 'column', gap: 4 }) as any}>
                     <span className={style({ font: 'heading-2xs', fontWeight: 'bold', color: 'neutral' }) as any}>
-                      🛠️ CH340B EEPROM Configurator
+                      🛠️ WCH CH34x EEPROM Configurator
                     </span>
                     <span className={style({ font: 'body-xs', color: 'neutral-subdued' }) as any}>
-                      Query and write hardware descriptors (VID, PID, Serial, Product name) using 300-baud command structures.
+                      Query and write hardware descriptors (VID, PID, Serial, Product name, Manufacturer) using 300-baud command structures.
                     </span>
                   </div>
 
@@ -650,6 +690,21 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                     </InlineAlert>
                   )}
 
+                  {ch34xProgress && (
+                    <div className={style({ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }) as any}>
+                      <div className={style({ display: 'flex', justifyContent: 'space-between', font: 'body-2xs', color: 'neutral-subdued' }) as any}>
+                        <span>{ch340bScanning ? 'Scanning configuration...' : 'Writing configuration...'}</span>
+                        <span>{ch34xProgress.current} / {ch34xProgress.total} bytes ({Math.round((ch34xProgress.current / ch34xProgress.total) * 100)}%)</span>
+                      </div>
+                      <div className={style({ width: 'full', backgroundColor: 'gray-200', borderRadius: 'full', height: 8, overflow: 'hidden' }) as any}>
+                        <div 
+                          className={style({ backgroundColor: 'blue-600', height: 'full' }) as any} 
+                          style={{ width: `${(ch34xProgress.current / ch34xProgress.total) * 100}%`, transition: 'width 0.1s ease-out' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {!ch340bConfig ? (
                     <Button
                       onPress={handleReadCh340bConfig}
@@ -657,7 +712,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                       isDisabled={ch340bScanning}
                       styles={style({ width: 'full' }) as any}
                     >
-                      {ch340bScanning ? 'Scanning EEPROM registers...' : 'Scan CH340B EEPROM Config'}
+                      {ch340bScanning ? 'Scanning EEPROM registers...' : 'Scan CH34x EEPROM Config'}
                     </Button>
                   ) : (
                     <div className={style({ display: 'flex', flexDirection: 'column', gap: 12 }) as any}>
@@ -679,18 +734,169 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                           isDisabled={ch340bWriting}
                         />
                       </div>
-                      <TextField
-                        label="Serial Number String (ASCII, max 8 chars)"
-                        value={ch340bConfig.serialNumber}
-                        onChange={(v) => setCh340bConfig(prev => prev ? { ...prev, serialNumber: v.slice(0, 8) } : null)}
-                        isDisabled={ch340bWriting}
-                      />
-                      <TextField
-                        label="Product Name String"
-                        value={ch340bConfig.productString}
-                        onChange={(v) => setCh340bConfig(prev => prev ? { ...prev, productString: v } : null)}
-                        isDisabled={ch340bWriting}
-                      />
+
+                      {ch340bConfig.chipType === 'CH343' ? (
+                        <>
+                          <div className={style({
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: 12
+                          }) as any}>
+                            <TextField
+                              label="Device Release (BCD)"
+                              value={ch340bConfig.bcd || '0x0100'}
+                              onChange={(v) => setCh340bConfig(prev => prev ? { ...prev, bcd: v } : null)}
+                              isDisabled={ch340bWriting}
+                            />
+                            <TextField
+                              label="Max Bus Power (mA)"
+                              value={ch340bConfig.power}
+                              onChange={(v) => setCh340bConfig(prev => prev ? { ...prev, power: v } : null)}
+                              isDisabled={ch340bWriting}
+                            />
+                          </div>
+
+                          <div className={style({ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }) as any}>
+                            <Switch
+                              isSelected={(ch340bConfig.cfg & (1 << 4)) !== 0}
+                              onChange={(checked) => {
+                                const mask = 1 << 4;
+                                setCh340bConfig(prev => prev ? { ...prev, cfg: checked ? (prev.cfg | mask) : (prev.cfg & ~mask) } : null);
+                              }}
+                              isDisabled={ch340bWriting}
+                            >
+                              CDC Driver Mode (System CDC Driver)
+                            </Switch>
+                            
+                            <Switch
+                              isSelected={(ch340bConfig.cfg & (1 << 3)) !== 0}
+                              onChange={(checked) => {
+                                const mask = 1 << 3;
+                                setCh340bConfig(prev => prev ? { ...prev, cfg: checked ? (prev.cfg | mask) : (prev.cfg & ~mask) } : null);
+                              }}
+                              isDisabled={ch340bWriting}
+                            >
+                              Internal EEPROM Write Protect Lock
+                            </Switch>
+
+                            <Switch
+                              isSelected={((ch340bConfig.attributes !== undefined ? ch340bConfig.attributes : 0x80) & (1 << 6)) !== 0}
+                              onChange={(checked) => {
+                                const mask = 1 << 6;
+                                setCh340bConfig(prev => {
+                                  if (!prev) return null;
+                                  const attrs = prev.attributes !== undefined ? prev.attributes : 0x80;
+                                  return { ...prev, attributes: checked ? (attrs | mask) : (attrs & ~mask) };
+                                });
+                              }}
+                              isDisabled={ch340bWriting}
+                            >
+                              Self-Powered Mode (vs Bus-Powered)
+                            </Switch>
+
+                            <Switch
+                              isSelected={((ch340bConfig.attributes !== undefined ? ch340bConfig.attributes : 0x80) & (1 << 5)) !== 0}
+                              onChange={(checked) => {
+                                const mask = 1 << 5;
+                                setCh340bConfig(prev => {
+                                  if (!prev) return null;
+                                  const attrs = prev.attributes !== undefined ? prev.attributes : 0x80;
+                                  return { ...prev, attributes: checked ? (attrs | mask) : (attrs & ~mask) };
+                                });
+                              }}
+                              isDisabled={ch340bWriting}
+                            >
+                              Remote Wakeup Support Enable
+                            </Switch>
+                          </div>
+
+                          <div className={style({ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }) as any}>
+                            <span className={style({ font: 'body-xs', fontWeight: 'bold', color: 'neutral' }) as any}>USB Descriptors Enablement:</span>
+                            <div className={style({ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }) as any}>
+                              <Switch
+                                isSelected={(ch340bConfig.cfg & (1 << 5)) !== 0}
+                                onChange={(checked) => {
+                                  const mask = 1 << 5;
+                                  setCh340bConfig(prev => prev ? { ...prev, cfg: checked ? (prev.cfg | mask) : (prev.cfg & ~mask) } : null);
+                                }}
+                                isDisabled={ch340bWriting}
+                              >
+                                Manufacturer
+                              </Switch>
+                              <Switch
+                                isSelected={(ch340bConfig.cfg & (1 << 6)) !== 0}
+                                onChange={(checked) => {
+                                  const mask = 1 << 6;
+                                  setCh340bConfig(prev => prev ? { ...prev, cfg: checked ? (prev.cfg | mask) : (prev.cfg & ~mask) } : null);
+                                }}
+                                isDisabled={ch340bWriting}
+                              >
+                                Product
+                              </Switch>
+                              <Switch
+                                isSelected={(ch340bConfig.cfg & (1 << 7)) !== 0}
+                                onChange={(checked) => {
+                                  const mask = 1 << 7;
+                                  setCh340bConfig(prev => prev ? { ...prev, cfg: checked ? (prev.cfg | mask) : (prev.cfg & ~mask) } : null);
+                                }}
+                                isDisabled={ch340bWriting}
+                              >
+                                Serial
+                              </Switch>
+                            </div>
+                          </div>
+
+                          <TextField
+                            label="Manufacturer String (max 19 chars)"
+                            value={ch340bConfig.manufacturerString || ''}
+                            onChange={(v) => setCh340bConfig(prev => prev ? { ...prev, manufacturerString: v.slice(0, 19) } : null)}
+                            isDisabled={ch340bWriting}
+                          />
+                          <TextField
+                            label="Product String (max 19 chars)"
+                            value={ch340bConfig.productString}
+                            onChange={(v) => setCh340bConfig(prev => prev ? { ...prev, productString: v.slice(0, 19) } : null)}
+                            isDisabled={ch340bWriting}
+                          />
+                          <TextField
+                            label="Serial Number String (max 11 chars)"
+                            value={ch340bConfig.serialNumber}
+                            onChange={(v) => setCh340bConfig(prev => prev ? { ...prev, serialNumber: v.slice(0, 11) } : null)}
+                            isDisabled={ch340bWriting}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <TextField
+                            label="Max Bus Power (mA)"
+                            value={ch340bConfig.power}
+                            onChange={(v) => setCh340bConfig(prev => prev ? { ...prev, power: v } : null)}
+                            isDisabled={ch340bWriting}
+                          />
+                          <Switch
+                            isSelected={(ch340bConfig.cfg & (1 << 5)) === 0}
+                            onChange={(checked) => {
+                              const mask = 1 << 5;
+                              setCh340bConfig(prev => prev ? { ...prev, cfg: checked ? (prev.cfg & ~mask) : (prev.cfg | mask) } : null);
+                            }}
+                            isDisabled={ch340bWriting}
+                          >
+                            Enable Serial Number String (USB Bus)
+                          </Switch>
+                          <TextField
+                            label="Serial Number String (ASCII, max 8 chars)"
+                            value={ch340bConfig.serialNumber}
+                            onChange={(v) => setCh340bConfig(prev => prev ? { ...prev, serialNumber: v.slice(0, 8) } : null)}
+                            isDisabled={ch340bWriting}
+                          />
+                          <TextField
+                            label="Product Name String (max 18 chars)"
+                            value={ch340bConfig.productString}
+                            onChange={(v) => setCh340bConfig(prev => prev ? { ...prev, productString: v.slice(0, 18) } : null)}
+                            isDisabled={ch340bWriting}
+                          />
+                        </>
+                      )}
 
                       {/* Raw Hex Dump registry table */}
                       {ch340bConfig.rawBytes && (
@@ -707,14 +913,21 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                           gap: 8
                         }) as any}>
                           <span className={style({ font: 'body-2xs', fontWeight: 'bold', color: 'neutral', display: 'block' }) as any}>
-                            💾 Raw EEPROM Register Hex Dump (CH340B)
+                            💾 Raw EEPROM Register Hex Dump ({ch340bConfig.chipType})
                           </span>
-                          <div className={style({ font: 'body-2xs', fontFamily: 'code', color: 'neutral-subdued', display: 'flex', flexDirection: 'column', gap: 4 }) as any}>
-                            <div>0x04-0x05 (VID): {ch340bConfig.rawBytes.vidBytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ')}</div>
-                            <div>0x06-0x07 (PID): {ch340bConfig.rawBytes.pidBytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ')}</div>
-                            <div>0x10-0x17 (SN):  {ch340bConfig.rawBytes.serialBytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ')}</div>
-                            <div>0x1A-0x3F (PD):  {ch340bConfig.rawBytes.productBytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ')}</div>
-                          </div>
+                          <pre className={codeBoxStyles as any}>
+                            {(() => {
+                              const lines: string[] = [];
+                              const bytesPerLine = 16;
+                              for (let i = 0; i < ch340bConfig.rawBytes.length; i += bytesPerLine) {
+                                const chunk = ch340bConfig.rawBytes.slice(i, i + bytesPerLine);
+                                const hex = Array.from(chunk).map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+                                const addr = i.toString(16).toUpperCase().padStart(2, '0');
+                                lines.push(`0x${addr}: ${hex}`);
+                              }
+                              return lines.join('\n');
+                            })()}
+                          </pre>
                         </div>
                       )}
 
@@ -743,7 +956,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                       </div>
                       
                       <span className={style({ font: 'body-2xs', color: 'neutral-subdued', fontStyle: 'italic', marginTop: 4 }) as any}>
-                        ⚠️ Note: Register writing requires physical CH340B silicon containing modifiable configuration memory.
+                        ⚠️ Note: Register writing requires physical {ch340bConfig.chipType} silicon containing modifiable configuration EEPROM memory.
                       </span>
                     </div>
                   )}
