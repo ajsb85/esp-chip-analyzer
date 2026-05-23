@@ -1,4 +1,4 @@
-const CACHE_NAME = 'esp-analyzer-cache-v1.1.3';
+const CACHE_NAME = 'esp-analyzer-cache-v1.1.4';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
