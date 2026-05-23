@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { FC } from 'react';
 import { Badge } from '@react-spectrum/s2/Badge';
 import { InlineAlert, Heading, Content } from '@react-spectrum/s2/InlineAlert';
@@ -40,7 +39,7 @@ export const AutoProgrammerCard: FC = () => {
     <div className={cardStyles}>
       <div className={style({ display: 'flex', justifyContent: 'space-between', alignItems: 'center' })}>
         <h2 className={style({ font: 'heading-xs', color: 'neutral', margin: 0, display: 'flex', alignItems: 'center', gap: 8 })}>
-          <PluginIcon size="M" /> ESP32 Auto-Programmer Circuit
+          <PluginIcon /> ESP32 Auto-Programmer Circuit
         </h2>
         <Badge variant="positive" fillStyle="subtle">Reference</Badge>
       </div>

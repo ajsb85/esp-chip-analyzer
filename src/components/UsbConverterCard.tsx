@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useEffect, useState, useCallback } from 'react';
 import type { FC } from 'react';
 import type { SerialConnectionState } from '../services/serialManager';
@@ -13,6 +12,15 @@ import { ch340bManager } from '../services/ch340bManager';
 import { TextField } from '@react-spectrum/s2/TextField';
 import { Picker, PickerItem } from '@react-spectrum/s2/Picker';
 import { Switch } from '@react-spectrum/s2/Switch';
+import PluginIcon from '@react-spectrum/s2/icons/Plugin';
+import DataSettingsIcon from '@react-spectrum/s2/icons/DataSettings';
+import ToolsIcon from '@react-spectrum/s2/icons/Tools';
+import FileTextIcon from '@react-spectrum/s2/icons/FileText';
+import PluginGearIcon from '@react-spectrum/s2/icons/PluginGear';
+import SaveFloppyIcon from '@react-spectrum/s2/icons/SaveFloppy';
+import AlertTriangleIcon from '@react-spectrum/s2/icons/AlertTriangle';
+import CheckmarkIcon from '@react-spectrum/s2/icons/Checkmark';
+import DataUploadIcon from '@react-spectrum/s2/icons/DataUpload';
 
 interface UsbConverterCardProps {
   serialState: SerialConnectionState;
@@ -353,7 +361,7 @@ export const UsbConverterCard: FC<UsbConverterCardProps> = ({ serialState }) => 
     setCh340bMessage(null);
     setCh34xProgress(null);
     try {
-      const config = await serialManager.runTemporary300BaudAction(async (port) => {
+      const config = await serialManager.runExclusiveAction(async (port) => {
         return await ch340bManager.readConfig(port, (current, total) => {
           setCh34xProgress({ current, total });
         });
@@ -411,7 +419,7 @@ export const UsbConverterCard: FC<UsbConverterCardProps> = ({ serialState }) => 
         throw new Error('Invalid numeric values for VID, PID, or Max Power.');
       }
 
-      await serialManager.runTemporary300BaudAction(async (port) => {
+      await serialManager.runExclusiveAction(async (port) => {
         await ch340bManager.writeConfig(port, {
           chipType: ch340bConfig.chipType,
           sig: ch340bConfig.sig,
@@ -1019,7 +1027,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                   variant={copied ? "accent" : "secondary"}
                   styles={style({ width: 'full', marginTop: 4 }) as any}
                 >
-                  {copied ? <><CheckIcon /> Copied to Clipboard!</> : '<FileTextIcon /> Copy Config Snippet'}
+                  {copied ? <><CheckmarkIcon /> Copied to Clipboard!</> : '<FileTextIcon /> Copy Config Snippet'}
                 </Button>
               </div>
             </div>

@@ -1,9 +1,10 @@
-// @ts-nocheck
 import { useState } from 'react';
 import type { FC } from 'react';
 import type { SerialConnectionState } from '../services/serialManager';
 import { espDiagnostics } from '../services/espDiagnostics';
 import type { EspChipDetails } from '../services/espDiagnostics';
+import DataSettingsIcon from '@react-spectrum/s2/icons/DataSettings';
+import AlertTriangleIcon from '@react-spectrum/s2/icons/AlertTriangle';
 import { Button } from '@react-spectrum/s2/Button';
 import { Badge } from '@react-spectrum/s2/Badge';
 import { ProgressCircle } from '@react-spectrum/s2/ProgressCircle';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { serialManager } from '../services/serialManager';
@@ -8,6 +7,8 @@ import { InlineAlert, Heading, Content } from '@react-spectrum/s2/InlineAlert';
 import { Button } from '@react-spectrum/s2/Button';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
 import SearchIcon from '@react-spectrum/s2/icons/Search';
+import PluginIcon from '@react-spectrum/s2/icons/Plugin';
+import InfoCircleIcon from '@react-spectrum/s2/icons/InfoCircle';
 
 interface ConnectionPanelProps {
   serialState: SerialConnectionState;

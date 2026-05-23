@@ -1,7 +1,8 @@
-// @ts-nocheck
 import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 import type { SerialConnectionState } from '../services/serialManager';
+import CodeIcon from '@react-spectrum/s2/icons/Code';
+import DataIcon from '@react-spectrum/s2/icons/Data';
 import { Button } from '@react-spectrum/s2/Button';
 import { Picker, PickerItem } from '@react-spectrum/s2/Picker';
 import { TextField } from '@react-spectrum/s2/TextField';

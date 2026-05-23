@@ -1,7 +1,7 @@
-// @ts-nocheck
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import type { SerialConnectionState } from '../services/serialManager';
+import DataIcon from '@react-spectrum/s2/icons/Data';
 import { Switch } from '@react-spectrum/s2/Switch';
 import { StatusLight } from '@react-spectrum/s2/StatusLight';
 import { InlineAlert, Heading, Content } from '@react-spectrum/s2/InlineAlert';
