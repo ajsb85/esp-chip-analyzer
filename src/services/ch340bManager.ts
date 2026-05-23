@@ -91,7 +91,7 @@ class CH340BManager {
         const timeoutPromise = new Promise<never>((_, reject) => {
           timeoutId = setTimeout(() => {
             reject(new Error(`Timeout waiting for response from chip at register 0x${addr.toString(16).toUpperCase()}`));
-          }, 300); // 300ms timeout per register query is ample at 300 baud
+          }, 1000); // 1000ms timeout per register query to account for OS latency
         });
 
         try {

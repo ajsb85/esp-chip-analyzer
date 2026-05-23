@@ -7,6 +7,7 @@ import { ConnectionPanel } from './components/ConnectionPanel';
 import { SignalMonitor } from './components/SignalMonitor';
 import { UsbConverterCard } from './components/UsbConverterCard';
 import { EspChipCard } from './components/EspChipCard';
+import { AutoProgrammerCard } from './components/AutoProgrammerCard';
 import { ConsoleTerminal } from './components/ConsoleTerminal';
 import { Provider } from '@react-spectrum/s2/Provider';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
@@ -227,6 +228,14 @@ function App() {
       </main>
 
       {/* Corporate Anchored Footer */}
+      <DashboardFooter isOnline={isOnline} />
+    </Provider>
+  );
+}
+
+export default App;
+
+ */}
       <DashboardFooter isOnline={isOnline} />
     </Provider>
   );
