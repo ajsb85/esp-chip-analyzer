@@ -51,11 +51,11 @@ interface SerialPortConnectionEvent extends Event {
 }
 
 interface Serial extends EventTarget {
-  onconnect: ((this: Serial, ev: SerialPortConnectionEvent) => any) | null;
-  ondisconnect: ((this: Serial, ev: SerialPortConnectionEvent) => any) | null;
+  onconnect: ((this: Serial, ev: SerialPortConnectionEvent) => void) | null;
+  ondisconnect: ((this: Serial, ev: SerialPortConnectionEvent) => void) | null;
   getPorts(): Promise<SerialPort[]>;
   requestPort(options?: { filters?: SerialPortFilter[] }): Promise<SerialPort>;
-  addEventListener(type: 'connect' | 'disconnect', listener: (ev: SerialPortConnectionEvent) => any, options?: boolean | AddEventListenerOptions): void;
+  addEventListener(type: 'connect' | 'disconnect', listener: (ev: SerialPortConnectionEvent) => void, options?: boolean | AddEventListenerOptions): void;
   addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
 }
 
@@ -67,6 +67,7 @@ interface USBDevice {
   readonly manufacturerName?: string;
   readonly productName?: string;
   readonly serialNumber?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly configuration?: any;
   open(): Promise<void>;
   close(): Promise<void>;

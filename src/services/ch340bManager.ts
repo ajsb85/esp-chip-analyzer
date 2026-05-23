@@ -87,7 +87,7 @@ class CH340BManager {
         const cmd = new Uint8Array([0x40, 0xA1, addr, 0x00]);
         await writer.write(cmd);
         
-        let timeoutId: any;
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
         const timeoutPromise = new Promise<never>((_, reject) => {
           timeoutId = setTimeout(() => {
             reject(new Error(`Timeout waiting for response from chip at register 0x${addr.toString(16).toUpperCase()}`));
@@ -96,17 +96,18 @@ class CH340BManager {
 
         try {
           const { value, done } = await Promise.race([reader.read(), timeoutPromise]);
-          clearTimeout(timeoutId);
+          if (timeoutId !== undefined) clearTimeout(timeoutId);
           if (done || !value || value.length === 0) {
             throw new Error(`Failed to read byte from register 0x${addr.toString(16).toUpperCase()}`);
           }
           return value[0];
         } catch (err) {
-          clearTimeout(timeoutId);
+          if (timeoutId !== undefined) clearTimeout(timeoutId);
           try {
             // Cancel reader on timeout to unlock the stream
             await reader.cancel();
-          } catch (e) {}
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          } catch (_e) { /* ignore */ }
           throw err;
         }
       };

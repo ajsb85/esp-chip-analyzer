@@ -111,9 +111,10 @@ class EspDiagnostics {
         description,
         flashSize
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[EspDiagnostics] Error running diagnostics:', err);
-      onProgress(`Error: ${err.message || String(err)}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      onProgress(`Error: ${msg}`);
       return null;
     } finally {
       // We keep the transport open if we want to run consecutive commands,
@@ -122,7 +123,8 @@ class EspDiagnostics {
         try {
           await this.transport.setDTR(false);
           await this.transport.setRTS(false);
-        } catch (e) {}
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (_e) { /* ignore */ }
       }
     }
   }

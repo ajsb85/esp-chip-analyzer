@@ -63,12 +63,12 @@ const corporateTextStyles = style({
 
 export const DashboardFooter: FC<DashboardFooterProps> = ({ isOnline }) => {
   return (
-    <footer className={footerStyles as any}>
+    <footer className={footerStyles}>
       {/* 3-Column Footer Grid */}
-      <div className={gridStyles as any}>
+      <div className={gridStyles}>
         {/* Column 1: Corporate Trust & Logo */}
-        <div className={style({ display: 'flex', flexDirection: 'column', gap: 16 }) as any}>
-          <div className={style({ display: 'flex', alignItems: 'center' }) as any}>
+        <div className={style({ display: 'flex', flexDirection: 'column', gap: 16 })}>
+          <div className={style({ display: 'flex', alignItems: 'center' })}>
             {/* Bushers Electronics Corporate Logo Emblem */}
             <div className={style({ 
               display: 'flex', 
@@ -76,13 +76,13 @@ export const DashboardFooter: FC<DashboardFooterProps> = ({ isOnline }) => {
               boxShadow: 'elevated',
               borderRadius: 'lg',
               overflow: 'hidden',
-              backgroundColor: 'gray-100',
+              backgroundColor: 'yellow-400',
               paddingX: 8,
               paddingY: 4,
               borderStyle: 'solid',
               borderWidth: 1,
-              borderColor: 'gray-200',
-            }) as any}>
+              borderColor: 'yellow-500',
+            })}>
               <svg width="90" height="34" viewBox="0 0 350 131" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <g clipPath="url(#clip0_288_14_footer_s2)">
                   <rect width="350" height="131" rx="16" fill="#FAD900"/>
@@ -114,27 +114,27 @@ export const DashboardFooter: FC<DashboardFooterProps> = ({ isOnline }) => {
               </svg>
             </div>
           </div>
-          <p className={corporateTextStyles as any}>
+          <p className={corporateTextStyles}>
             A division of Bushers Electronics dedicated to precision hardware interface diagnostics, silicon logic verification, and laboratory tools development.
           </p>
-          <span className={style({ font: 'body-xs', color: 'neutral-subdued' }) as any}>
+          <span className={style({ font: 'body-xs', color: 'neutral-subdued' })}>
             &copy; 2026 Bushers Electronics. All rights reserved. Registered in Corporate Systems Division.
           </span>
         </div>
 
         {/* Column 2: Specs index */}
-        <div className={style({ display: 'flex', flexDirection: 'column', gap: 8 }) as any}>
-          <h4 className={sectionTitleStyles as any}>
+        <div className={style({ display: 'flex', flexDirection: 'column', gap: 8 })}>
+          <h4 className={sectionTitleStyles}>
             Technical Resource Index
           </h4>
-          <ul className={listStyles as any}>
+          <ul className={listStyles}>
             {[
               { label: 'Web Serial API Specification', url: 'https://wicg.github.io/serial/' },
               { label: 'Silicon Labs AN978 Customs Guide', url: 'https://www.silabs.com/documents/public/application-notes/an978-cp210x-usb-to-uart-api-specification.pdf' },
               { label: 'Espressif esptool-js Library', url: 'https://github.com/espressif/esptool-js' },
               { label: 'Device Whitelist & USB Vendor IDs', url: 'https://devicehunt.com/' }
             ].map((link, idx) => (
-              <li key={idx} className={style({ margin: 0 }) as any}>
+              <li key={idx} className={style({ margin: 0 })}>
                 <Link 
                   href={link.url}
                   target="_blank"
@@ -149,8 +149,8 @@ export const DashboardFooter: FC<DashboardFooterProps> = ({ isOnline }) => {
         </div>
 
         {/* Column 3: Platform & Caching Environment Badges */}
-        <div className={style({ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'start' }) as any}>
-          <h4 className={sectionTitleStyles as any}>
+        <div className={style({ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'start' })}>
+          <h4 className={sectionTitleStyles}>
             Environment Status
           </h4>
           <div className={style({
@@ -158,7 +158,7 @@ export const DashboardFooter: FC<DashboardFooterProps> = ({ isOnline }) => {
             flexDirection: 'column',
             gap: 8,
             alignItems: 'start'
-          }) as any}>
+          })}>
             {/* Caching Status */}
             <Badge variant="informative" fillStyle="subtle">
               📦 PWA Status: Fully Offline Cached (v1.0.4)
@@ -199,7 +199,7 @@ export const DashboardFooter: FC<DashboardFooterProps> = ({ isOnline }) => {
                 }
               }}
               variant="secondary"
-              styles={style({ marginTop: 8, width: 'full' }) as any}
+              styles={style({ marginTop: 8, width: 'full' })}
             >
               🔄 Force Update PWA
             </Button>
@@ -216,10 +216,10 @@ export const DashboardFooter: FC<DashboardFooterProps> = ({ isOnline }) => {
         width: '100%',
         borderRadius: 'full',
         overflow: 'hidden',
-      }) as any}>
-        <div className={style({ flex: '0 0 40%', backgroundColor: 'blue-600' }) as any} />
-        <div className={style({ flex: '0 0 35%', backgroundColor: 'yellow-500' }) as any} />
-        <div className={style({ flex: '0 0 25%', backgroundColor: 'red-600' }) as any} />
+      })}>
+        <div className={style({ flex: '0 0 40%', backgroundColor: 'blue-600' })} />
+        <div className={style({ flex: '0 0 35%', backgroundColor: 'yellow-500' })} />
+        <div className={style({ flex: '0 0 25%', backgroundColor: 'red-600' })} />
       </div>
     </footer>
   );

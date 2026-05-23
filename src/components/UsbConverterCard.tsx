@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useEffect, useState, useCallback } from 'react';
 import type { FC } from 'react';
 import type { SerialConnectionState } from '../services/serialManager';

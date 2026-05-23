@@ -144,8 +144,10 @@ class SerialManager {
   public async forgetActivePort(): Promise<void> {
     const port = this.state.port;
     await this.disconnect();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (port && (port as any).forget) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (port as any).forget();
       } catch (e) {
         console.error('Failed to forget port:', e);
@@ -154,10 +156,10 @@ class SerialManager {
   }
 
   /**
-   * Temporarily closes the port, reopens it at 300 baud, executes the provided async action,
-   * closes it, and reopens it at the original baud rate to resume normal operation.
+   * Temporarily closes the port, pauses reading, executes the provided async action (which is responsible for opening the port if needed),
+   * and then closes and reopens it at the original baud rate to resume normal operation.
    */
-  public async runTemporary300BaudAction<T>(action: (port: SerialPort) => Promise<T>): Promise<T> {
+  public async runExclusiveAction<T>(action: (port: SerialPort) => Promise<T>): Promise<T> {
     if (!this.state.port || !this.state.isConnected) {
       throw new Error('No active serial port connected.');
     }
@@ -170,33 +172,33 @@ class SerialManager {
     if (this.reader) {
       try {
         await this.reader.cancel();
-      } catch (e) {}
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_e) { /* ignore */ }
       this.reader = null;
     }
 
-    // 2. Close the serial port
+    // 2. Close the serial port so the action can open it with its required parameters
     try {
       await port.close();
-    } catch (e) {}
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_e) { /* ignore */ }
 
     try {
-      // 3. Open port at 300 baud for configuration commands
-      await port.open({ baudRate: 300 });
-
-      // 4. Run the user's action
+      // 3. Run the user's action
       const result = await action(port);
       return result;
     } finally {
-      // 5. Always attempt to restore the original connection parameters
+      // 4. Always attempt to restore the original connection parameters
       try {
         await port.close();
-      } catch (e) {}
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_e) { /* ignore */ }
 
       try {
         await port.open({ baudRate: originalBaud });
         this.startReading();
       } catch (e) {
-        console.error('Failed to restore serial connection after temporary action:', e);
+        console.error('Failed to restore serial connection after exclusive action:', e);
         this.updateState({ isConnected: false, port: null, error: 'Failed to restore normal port operations.' });
       }
     }

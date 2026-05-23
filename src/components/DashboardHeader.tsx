@@ -72,21 +72,21 @@ export const DashboardHeader: FC<DashboardHeaderProps> = ({
   };
 
   return (
-    <header className={headerStyles as any}>
+    <header className={headerStyles}>
       {/* Title Segment & Application Brand Icon */}
-      <div className={style({ display: 'flex', alignItems: 'center', gap: 16 }) as any}>
+      <div className={style({ display: 'flex', alignItems: 'center', gap: 16 })}>
         <div className={style({
           display: 'flex', 
           alignItems: 'center',
           boxShadow: 'elevated',
           borderRadius: 'lg',
           overflow: 'hidden',
-          backgroundColor: 'gray-100',
+          backgroundColor: 'yellow-400',
           padding: 4,
           borderStyle: 'solid',
           borderWidth: 1,
-          borderColor: 'gray-200',
-        }) as any}>
+          borderColor: 'yellow-500',
+        })}>
           <img 
             src="favicon.svg" 
             alt="ESP32 Chip Analyzer App Icon" 
@@ -94,23 +94,23 @@ export const DashboardHeader: FC<DashboardHeaderProps> = ({
               width: 32, 
               height: 32, 
               display: 'block'
-            }) as any} 
+            })} 
           />
         </div>
-        <div className={style({ display: 'flex', flexDirection: 'column', gap: 2 }) as any}>
-          <h1 className={appTitleStyles as any}>
+        <div className={style({ display: 'flex', flexDirection: 'column', gap: 2 })}>
+          <h1 className={appTitleStyles}>
             ESP32 Chip & USB Bridge Analyzer
           </h1>
-          <p className={subtitleStyles as any}>
+          <p className={subtitleStyles}>
             Enterprise Diagnostics Utility &bull; Silicon Labs AN978 Customs Inspector
           </p>
         </div>
       </div>
 
       {/* Control Segment & Badges */}
-      <div className={style({ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }) as any}>
+      <div className={style({ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' })}>
         {/* Support status badges */}
-        <div className={style({ display: 'flex', gap: 8 }) as any}>
+        <div className={style({ display: 'flex', gap: 8 })}>
           {!isWebSerialSupported ? (
             <Badge variant="negative" fillStyle="subtle">No WebSerial</Badge>
           ) : (

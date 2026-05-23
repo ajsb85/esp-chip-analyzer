@@ -148,7 +148,8 @@ class UsbAnalyzer {
       } finally {
         try {
           await usbDevice.close();
-        } catch (e) {}
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (_e) { /* ignore */ }
       }
     }
 
