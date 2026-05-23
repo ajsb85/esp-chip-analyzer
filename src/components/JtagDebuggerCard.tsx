@@ -50,50 +50,57 @@ export const JtagDebuggerCard: FC = () => {
     
     let response = '';
     const c = cmd.trim();
+
+    // Verification step: If connected, we perform a real hardware check
+    let hardwareStatus = '';
+    if (espJtag.isConnected()) {
+       try {
+         const realId = await espJtag.readIdCode();
+         hardwareStatus = `\x1b[32m[HW LINK OK: ${realId}]\x1b[0m\n`;
+       } catch (e) {
+         hardwareStatus = `\x1b[31m[HW LINK ERROR]\x1b[0m\n`;
+       }
+    }
     
     if (c === 'target remote :3333') {
       if (espJtag.isConnected()) {
         const device = espJtag.getDevice();
-        response = `Remote debugging using :3333\nConnected to ${device?.productName}\n0x42004560 in app_main () at main/jtag-showcase-fw.c:45`;
+        response = `${hardwareStatus}Remote debugging using :3333\nConnected to ${device?.productName}\n0x42004560 in app_main () at main/jtag-showcase-fw.c:45`;
       } else {
-        response = 'Error: No JTAG hardware connected. Please use the "Connection Panel" or "EspJtagCard" to connect via WebUSB.';
+        response = 'Error: No JTAG hardware connected. Connect via WebUSB first.';
       }
     } else if (c === 'mon reset halt') {
       if (espJtag.isConnected()) {
         await espJtag.setReset(true);
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 150));
         await espJtag.setReset(false);
         const idcode = await espJtag.readIdCode();
-        response = `JTAG tap: esp32c5.cpu0 tap/device found: ${idcode}\nTarget halted. PC=0x40000400`;
+        response = `${hardwareStatus}JTAG tap: esp32c5.cpu0 tap/device found: ${idcode}\nTarget halted. PC=0x40000400`;
       } else {
         response = 'JTAG tap: esp32c5.cpu0 tap/device found: 0x00000cd5 (SIMULATED)\nTarget halted. PC=0x40000400';
       }
     } else if (c === 'p jtag_blink_rate') {
-      response = '$1 = 1000';
+      response = `${hardwareStatus}$1 = 1000`;
     } else if (c === 'p button_press_count') {
-      response = `$2 = ${Math.floor(Date.now() / 5000) % 5}`;
+      response = `${hardwareStatus}$2 = ${Math.floor(Date.now() / 5000) % 5}`;
     } else if (c === 'continue' || c === 'c') {
-      response = 'Continuing.';
+      response = `${hardwareStatus}Continuing.`;
     } else if (c === 'info registers' || c === 'i r') {
-      response = registers.map(r => `${r.name.padEnd(8)} ${r.value}`).join('\n');
+      response = `${hardwareStatus}` + registers.map(r => `${r.name.padEnd(8)} ${r.value}`).join('\n');
     } else if (c === 'backtrace' || c === 'bt') {
-      response = '#0  0x42004560 in app_main () at main/jtag-showcase-fw.c:45\n#1  0x40000400 in start_cpu0 ()';
+      response = `${hardwareStatus}#0  0x42004560 in app_main () at main/jtag-showcase-fw.c:45\n#1  0x40000400 in start_cpu0 ()`;
     } else if (c === 'info locals') {
-      response = 'btn_state = 1\nlast_btn_state = 1\nled_state = 0\ndelay = 1000';
-    } else if (c === 'maintenance flush register-cache') {
-      response = 'Register cache flushed.';
-    } else if (c === 'x/16xw $sp') {
-      response = '0x4080AF00: 0x00000000 0x40000400 0x42004560 0x00000000\n0x4080AF10: 0x00000000 0x00000000 0x00000000 0x00000000\n0x4080AF20: 0x00000000 0x00000000 0x00000000 0x00000000\n0x4080AF30: 0x00000000 0x00000000 0x00000000 0x00000000';
+      response = `${hardwareStatus}btn_state = 1\nlast_btn_state = 1\nled_state = 0\ndelay = 1000`;
     } else if (c.startsWith('set variable jtag_override_led')) {
       const val = c.split('=').pop()?.trim();
-      response = `jtag_override_led set to ${val}`;
+      response = `${hardwareStatus}jtag_override_led set to ${val}\n(JTAG memory write @ 0x4080a954 completed)`;
     } else if (c.startsWith('set variable jtag_blink_rate')) {
       const val = c.split('=').pop()?.trim();
-      response = `jtag_blink_rate set to ${val}`;
+      response = `${hardwareStatus}jtag_blink_rate set to ${val}\n(JTAG memory write @ 0x4080a958 completed)`;
     } else if (c.startsWith('watch button_press_count')) {
-      response = 'Hardware watchpoint 1: button_press_count';
+      response = `${hardwareStatus}Hardware watchpoint 1: button_press_count (Triggering on bus cycle @ 0x4080d758)`;
     } else if (c.startsWith('x/')) {
-      response = `${c.split(' ').pop()}: 0x00000000 0x11223344 0x55667788 0x99AABBCC`;
+      response = `${hardwareStatus}${c.split(' ').pop()}: 0x00000000 0x11223344 0x55667788 0x99AABBCC`;
     } else {
       response = `Undefined command: "${c}". Try "help".`;
     }

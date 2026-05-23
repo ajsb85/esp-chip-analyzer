@@ -164,6 +164,28 @@ export const JtagPlaygroundCard: FC<JtagPlaygroundCardProps> = ({ serialState })
               </Text>
             </div>
           </div>
+
+          <div className={style({ marginTop: 12, padding: 16, backgroundColor: 'blue-100', borderRadius: 'default', borderStyle: 'dashed', borderWidth: 1, borderColor: 'blue-400' }) as any}>
+            <Text styles={style({ font: 'body-xs', fontWeight: 'bold', color: 'blue-900' })}>🎓 JTAG Learning Roadmap</Text>
+            <div className={style({ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }) as any}>
+               <div>
+                 <Text styles={style({ font: 'body-2xs', fontWeight: 'bold' })}>Basic Concepts</Text>
+                 <Text styles={style({ font: 'body-2xs', color: 'neutral-subdued' })}>
+                   • TAP State Machine<br/>
+                   • IR vs DR registers<br/>
+                   • IDCODE shifting
+                 </Text>
+               </div>
+               <div>
+                 <Text styles={style({ font: 'body-2xs', fontWeight: 'bold' })}>Advanced Mastery</Text>
+                 <Text styles={style({ font: 'body-2xs', color: 'neutral-subdued' })}>
+                   • Memory Mapped I/O<br/>
+                   • Abstract Commands<br/>
+                   • Program Buffer execution
+                 </Text>
+               </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

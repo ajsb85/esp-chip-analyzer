@@ -181,19 +181,20 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
         </div>
       </div>
 
-      <div className={terminalWrapperStyles as any}>
+      <div className={terminalWrapperStyles as any} style={{ border: 'none', background: '#111827' }}>
         <div className={terminalHeaderStyles as any}>
           <span>COM PORT MONITOR (XTERM)</span>
         </div>
-        
+
         {/* XTerm Container */}
-        <div style={{ background: '#111827', padding: 16, height: 350 }}>
-          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-              <div ref={terminalRef} style={{ width: '100%', height: '100%', overflow: 'hidden' }} />
+        <div style={{ background: '#111827', padding: 16, height: 350, overflow: 'hidden' }}>
+          <div style={{ position: 'relative', width: '100%', height: '100%', background: '#111827' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: '#111827' }}>
+              <div ref={terminalRef} style={{ width: '100%', height: '100%', overflow: 'hidden', background: '#111827' }} />
             </div>
           </div>
         </div>
+
 
         {/* Command bar input form */}
         <form 

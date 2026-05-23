@@ -212,9 +212,70 @@ export class EspJtag {
   }
 
   /**
-   * Performs a JTAG TAP reset and shifts out the 32-bit IDCODE.
-   * This is a "real" hardware interaction.
+   * RISC-V DMI (Debug Module Interface) Access
+   * IR 0x12 = DMI
    */
+  public async dmiOp(address: number, data: number, op: 1 | 2): Promise<number | null> {
+    if (!this.device) return null;
+
+    try {
+      // 1. Load IR with 0x12 (DMI)
+      // TAP Reset first
+      for (let i = 0; i < 6; i++) await this.clock(true, false, false);
+      // Move to Shift-IR (TMS: 0, 1, 1, 0, 0)
+      await this.clock(false, false, false); // Idle
+      await this.clock(true, false, false);  // Select-DR
+      await this.clock(true, false, false);  // Select-IR
+      await this.clock(false, false, false); // Capture-IR
+      await this.clock(false, false, false); // Shift-IR
+
+      // Shift in 0x12 (5 bits for ESP32-C5)
+      const ir_val = 0x12;
+      for (let i = 0; i < 4; i++) {
+        await this.clock(false, (ir_val >> i) & 1 ? true : false, false);
+      }
+      await this.clock(true, (ir_val >> 4) & 1 ? true : false, false); // Exit-IR
+
+      // 2. Move to Shift-DR
+      await this.clock(true, false, false); // Update-IR
+      await this.clock(true, false, false); // Select-DR
+      await this.clock(false, false, false); // Capture-DR
+      await this.clock(false, false, false); // Shift-DR
+
+      // 3. Shift in DMI Command: [Address (7) | Data (32) | Op (2)] = 41 bits
+      // Op: 0=Ignore, 1=Read, 2=Write, 3=Reserved
+      
+      // Shift 40 bits
+      const totalBits = 41;
+      // Combine into a BigInt since it's 41 bits
+      // We'll shift them out bit by bit
+      for (let i = 0; i < totalBits - 1; i++) {
+        let bit = 0;
+        if (i < 2) bit = (op >> i) & 1;
+        else if (i < 34) bit = (data >> (i - 2)) & 1;
+        else bit = (address >> (i - 34)) & 1;
+        
+        await this.clock(false, bit === 1, true);
+      }
+      // Last bit with TMS=1
+      let lastBit = (address >> 6) & 1;
+      await this.clock(true, lastBit === 1, true);
+
+      await this.flush();
+      
+      // 4. Read response
+      const resp = await this.readIn(64);
+      if (!resp || resp.length < 6) return null;
+      
+      // Extract data bits from the captured stream
+      // This is a simplified extraction for the demo
+      const resultData = (resp[4] << 24) | (resp[3] << 16) | (resp[2] << 8) | resp[1];
+      return resultData >>> 0;
+    } catch (e) {
+      return null;
+    }
+  }
+
   public async readIdCode(): Promise<string | null> {
     if (!this.device) return null;
 

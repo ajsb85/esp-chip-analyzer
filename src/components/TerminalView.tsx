@@ -3,7 +3,6 @@ import type { FC } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
-import { style } from "@react-spectrum/s2/style" with { type: "macro" };
 
 interface TerminalViewProps {
   lines: string[];
@@ -63,16 +62,19 @@ export const TerminalView: FC<TerminalViewProps> = ({ lines, height = 300 }) => 
 
   return (
     <div 
-      className={style({
-        borderRadius: 'lg',
-        overflow: 'hidden',
+      style={{ 
+        height, 
         width: '100%',
-      }) as any}
-      style={{ height, boxSizing: 'border-box', padding: '12px', background: '#111827' }}
+        boxSizing: 'border-box', 
+        padding: '12px', 
+        background: '#111827', 
+        borderRadius: '8px',
+        overflow: 'hidden'
+      }}
     >
-      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-          <div ref={terminalRef} style={{ width: '100%', height: '100%', overflow: 'hidden' }} />
+      <div style={{ position: 'relative', width: '100%', height: '100%', background: '#111827' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: '#111827' }}>
+          <div ref={terminalRef} style={{ width: '100%', height: '100%', overflow: 'hidden', background: '#111827' }} />
         </div>
       </div>
     </div>
