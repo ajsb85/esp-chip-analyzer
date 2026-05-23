@@ -1,4 +1,5 @@
 import { ESPLoader, Transport } from 'esptool-js';
+import { serialManager } from './serialManager';
 
 export interface EspChipDetails {
   chipName: string;
@@ -50,6 +51,7 @@ class EspDiagnostics {
 
       onProgress('Synchronizing with bootloader... (Toggling DTR/RTS)');
       const chipType = await this.loader.main();
+      serialManager.setChipMode('Download');
       onProgress(`Chip type identified: ${chipType}`);
 
       const chip = this.loader.chip;

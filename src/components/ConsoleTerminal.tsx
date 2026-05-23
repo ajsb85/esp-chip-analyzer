@@ -7,6 +7,7 @@ import { Button } from '@react-spectrum/s2/Button';
 import { Picker, PickerItem } from '@react-spectrum/s2/Picker';
 import { TextField } from '@react-spectrum/s2/TextField';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
+import { Text } from "@react-spectrum/s2";
 import DownloadIcon from '@react-spectrum/s2/icons/Download';
 import DeleteIcon from '@react-spectrum/s2/icons/Delete';
 
@@ -140,6 +141,7 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
 
     if (lines.length > 0) {
       const parsedLines = lines.map(line => {
+        // eslint-disable-next-line no-control-regex
         const cleaned = line.replace(/\x1b\[[0-9;]*m/g, ''); // strip ansi codes
         const match = cleaned.match(IDF_LOG_REGEX);
         let type: LogLine['type'] = 'raw';
@@ -277,8 +279,18 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
         
         <div className={screenStyles as any} ref={screenRef}>
           {filteredLines.length === 0 ? (
-            <div className={style({ margin: 'auto', color: 'neutral-subdued', font: 'body-sm', textAlign: 'center' }) as any}>
-              <DataIcon /> Console Idle. Ready to receive serial stream...
+            <div className={style({ 
+              margin: 'auto', 
+              color: 'neutral-subdued', 
+              font: 'body-sm', 
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8
+            }) as any}>
+              <DataIcon /> 
+              <Text>Console Idle. Ready to receive serial stream...</Text>
             </div>
           ) : (
             filteredLines.map((line, idx) => (

@@ -6,7 +6,8 @@ import { espDiagnostics } from '../services/espDiagnostics';
 import { Button } from '@react-spectrum/s2/Button';
 import { Badge } from '@react-spectrum/s2/Badge';
 import { ProgressBar } from '@react-spectrum/s2/ProgressBar';
-import { style } from "@react-spectrum/s2/style" with { type: "macro" };
+import { Text } from '@react-spectrum/s2';
+import { style, iconStyle } from "@react-spectrum/s2/style" with { type: "macro" };
 import DataUploadIcon from '@react-spectrum/s2/icons/DataUpload';
 import AlertTriangleIcon from '@react-spectrum/s2/icons/AlertTriangle';
 import PlayIcon from '@react-spectrum/s2/icons/Play';
@@ -48,16 +49,12 @@ export const FirmwareFlasherCard: FC<FirmwareFlasherCardProps> = ({ serialState 
     setProgressPercent(undefined);
 
     try {
-      const fileArray: { data: string; address: number }[] = [];
+      const fileArray: { data: Uint8Array; address: number }[] = [];
       for (const file of firmwareFiles) {
         const response = await fetch(file.path);
         if (!response.ok) throw new Error(`Failed to load ${file.name}`);
         const buffer = await response.arrayBuffer();
-        
-        // esptool-js expects a binary string, not Uint8Array.
-        // Wait, esptool-js typescript definitions say Uint8Array? Let's check.
-        // I will pass Uint8Array. If it expects binary string, I will fix it.
-        fileArray.push({ data: new Uint8Array(buffer) as any, address: file.address });
+        fileArray.push({ data: new Uint8Array(buffer), address: file.address });
       }
 
       setProgressMsg('Connecting to ESP32 Bootloader...');
@@ -66,7 +63,7 @@ export const FirmwareFlasherCard: FC<FirmwareFlasherCardProps> = ({ serialState 
         return await espDiagnostics.flashFirmware(
           port,
           serialState.baudRate,
-          fileArray as any,
+          fileArray,
           (msg, percent) => {
             setProgressMsg(msg);
             setProgressPercent(percent);
@@ -85,22 +82,24 @@ export const FirmwareFlasherCard: FC<FirmwareFlasherCardProps> = ({ serialState 
     <div className={cardStyles as any}>
       <div className={style({ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }) as any}>
         <h2 className={style({ font: 'heading-xs', color: 'neutral', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }) as any}>
-          <DataUploadIcon /> Firmware Flasher
+          <DataUploadIcon styles={iconStyle({ size: 'M' })} />
+          <Text>Firmware Flasher</Text>
         </h2>
         <Badge variant="notice" fillStyle="subtle">ESP32 Demo</Badge>
       </div>
 
       <div className={style({ display: 'flex', flexDirection: 'column', gap: 8 }) as any}>
-        <span className={style({ font: 'body-sm', fontWeight: 'bold', color: 'neutral' }) as any}>Bushers Samsung NU/TU ESP32 Clasico Demo</span>
-        <p className={style({ font: 'body-xs', color: 'neutral-subdued', margin: 0 }) as any}>
+        <Text styles={style({ font: 'body-sm', fontWeight: 'bold', color: 'neutral' })}>Bushers Samsung NU/TU ESP32 Clasico Demo</Text>
+        <Text styles={style({ font: 'body-xs', color: 'neutral-subdued' })}>
           This utility will flash the pre-compiled Bushers Samsung NU/TU remote emulator firmware onto your ESP32. It uses the standard layout for a 4MB flash ESP32 module.
-        </p>
+        </Text>
       </div>
 
       <div className={style({ backgroundColor: 'gray-50', padding: 12, borderRadius: 'lg', borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200' }) as any}>
-        <span className={style({ font: 'body-xs', fontWeight: 'bold', color: 'neutral', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }) as any}>
-          <FileTextIcon /> Flash Memory Map
-        </span>
+        <div className={style({ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }) as any}>
+          <FileTextIcon styles={iconStyle({ size: 'S' })} />
+          <Text styles={style({ font: 'body-xs', fontWeight: 'bold', color: 'neutral' })}>Flash Memory Map</Text>
+        </div>
         <ul className={style({ margin: 0, paddingLeft: 20, font: 'body-xs', color: 'neutral', display: 'flex', flexDirection: 'column', gap: 4 }) as any}>
           {firmwareFiles.map((f, i) => (
             <li key={i}><code>0x{f.address.toString(16).toUpperCase().padStart(4, '0')}</code> : {f.name}</li>
@@ -114,9 +113,10 @@ export const FirmwareFlasherCard: FC<FirmwareFlasherCardProps> = ({ serialState 
             variant="accent" 
             onPress={handleFlash}
             isDisabled={flashing}
+            styles={style({ width: 'full' }) as any}
           >
-            <PlayIcon />
-            {flashing ? 'Flashing in Progress...' : 'Start Flash Sequence'}
+            {flashing ? <DataUploadIcon /> : <PlayIcon />}
+            <Text>{flashing ? 'Flashing in Progress...' : 'Start Flash Sequence'}</Text>
           </Button>
 
           {progressMsg && (
@@ -128,15 +128,16 @@ export const FirmwareFlasherCard: FC<FirmwareFlasherCardProps> = ({ serialState 
               padding: 12, 
               borderRadius: 'sm',
             }) as any}>
-              <div style={{ marginBottom: progressPercent !== undefined ? 8 : 0 }}>{progressMsg}</div>
+              <div className={style({ marginBottom: 8 }) as any}>{progressMsg}</div>
               {progressPercent !== undefined && (
                 <ProgressBar value={progressPercent} label="Upload Progress" size="S" />
               )}
             </div>
           )}
           
-          <div className={style({ display: 'flex', alignItems: 'center', gap: 4, font: 'body-xs', color: 'neutral-subdued' }) as any}>
-            <AlertTriangleIcon /> Note: This will overwrite any existing firmware on the ESP32.
+          <div className={style({ display: 'flex', alignItems: 'center', gap: 8, font: 'body-xs', color: 'neutral-subdued' }) as any}>
+            <AlertTriangleIcon styles={iconStyle({ size: 'S', color: 'notice' })} />
+            <Text>Note: This will overwrite any existing firmware on the ESP32.</Text>
           </div>
         </div>
       ) : (
@@ -146,7 +147,7 @@ export const FirmwareFlasherCard: FC<FirmwareFlasherCardProps> = ({ serialState 
           font: 'body-sm',
           padding: 24,
         }) as any}>
-          Connect a serial bridge to flash firmware.
+          <Text>Connect a serial bridge to flash firmware.</Text>
         </div>
       )}
     </div>

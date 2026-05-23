@@ -5,6 +5,7 @@ import type { SerialConnectionState } from '../services/serialManager';
 import { Picker, PickerItem } from '@react-spectrum/s2/Picker';
 import { InlineAlert, Heading, Content } from '@react-spectrum/s2/InlineAlert';
 import { Button } from '@react-spectrum/s2/Button';
+import { Badge } from '@react-spectrum/s2/Badge';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
 import SearchIcon from '@react-spectrum/s2/icons/Search';
 import PluginIcon from '@react-spectrum/s2/icons/Plugin';
@@ -94,9 +95,23 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
 
   return (
     <div className={cardStyles as any}>
-      <h2 className={titleStyles as any}>
-        <PluginIcon /> Port Connection
-      </h2>
+      <div className={style({ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }) as any}>
+        <h2 className={titleStyles as any}>
+          <PluginIcon /> Port Connection
+        </h2>
+        {serialState.isConnected && (
+          <Badge 
+            variant={
+              serialState.chipMode === 'Download' ? 'informative' : 
+              serialState.chipMode === 'Execution' ? 'positive' : 'neutral'
+            }
+            fillStyle="subtle"
+          >
+            {serialState.chipMode === 'Download' ? 'UART Download Mode' : 
+             serialState.chipMode === 'Execution' ? 'Execution Mode' : 'Mode Unknown'}
+          </Badge>
+        )}
+      </div>
 
       {/* Semantic Connection Errors */}
       {serialState.error && (

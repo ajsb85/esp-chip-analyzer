@@ -5,6 +5,7 @@ export interface SerialConnectionState {
   error: string | null;
   errorClass: 'Security' | 'Busy' | 'DeviceLost' | 'Unknown' | null;
   isReconnecting: boolean;
+  chipMode: 'Unknown' | 'Execution' | 'Download';
 }
 
 export type DataCallback = (data: Uint8Array) => void;
@@ -17,7 +18,8 @@ class SerialManager {
     baudRate: 115200,
     error: null,
     errorClass: null,
-    isReconnecting: false
+    isReconnecting: false,
+    chipMode: 'Unknown'
   };
 
   private reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
@@ -26,11 +28,14 @@ class SerialManager {
   private onDisconnectCallback: DisconnectCallback | null = null;
   private reconnectTimer: any = null;
   private isExplicitDisconnect = false;
+  private bootDecoder = new TextDecoder('utf-8', { fatal: false });
+  private bootBuffer = '';
 
   private stateListeners: Set<(state: SerialConnectionState) => void> = new Set();
 
   constructor() {
     if (typeof navigator !== 'undefined' && navigator.serial) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       navigator.serial.addEventListener('disconnect', (event: any) => {
         const disconnectedPort = event.port as SerialPort;
         if (this.state.port && this.state.port === disconnectedPort) {
@@ -70,7 +75,7 @@ class SerialManager {
       this.updateState({ error: null, errorClass: null });
       const port = await navigator.serial.requestPort();
       return port;
-    } catch (err: any) {
+    } catch (err) {
       this.handleError(err);
       return null;
     }
@@ -94,14 +99,14 @@ class SerialManager {
       this.isExplicitDisconnect = false;
       this.onDataCallback = onData;
       this.onDisconnectCallback = onDisconnect;
-      this.updateState({ error: null, errorClass: null, isReconnecting: false });
+      this.updateState({ error: null, errorClass: null, isReconnecting: false, chipMode: 'Unknown' });
 
       await port.open({ baudRate });
       this.updateState({ isConnected: true, port, baudRate });
 
       this.startReading();
       return true;
-    } catch (err: any) {
+    } catch (err) {
       this.handleError(err);
       return false;
     }
@@ -122,17 +127,19 @@ class SerialManager {
     if (this.reader) {
       try {
         await this.reader.cancel();
-      } catch (e) {}
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_e) { /* ignore */ }
       this.reader = null;
     }
 
     if (this.state.port) {
       try {
         await this.state.port.close();
-      } catch (e) {}
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_e) { /* ignore */ }
     }
 
-    this.updateState({ isConnected: false, port: null, isReconnecting: false });
+    this.updateState({ isConnected: false, port: null, isReconnecting: false, chipMode: 'Unknown' });
     if (this.onDisconnectCallback) {
       this.onDisconnectCallback();
     }
@@ -204,12 +211,17 @@ class SerialManager {
     }
   }
 
+  public setChipMode(mode: SerialConnectionState['chipMode']) {
+    this.updateState({ chipMode: mode });
+  }
+
   /**
    * Start asynchronous reading loop.
    */
   private async startReading() {
     if (!this.state.port || !this.state.port.readable) return;
     this.keepReading = true;
+    this.bootBuffer = '';
 
     try {
       const port = this.state.port;
@@ -221,8 +233,25 @@ class SerialManager {
             if (done) {
               break;
             }
-            if (value && this.onDataCallback) {
-              this.onDataCallback(value);
+            if (value) {
+              // sniffs for mode indicators
+              const text = this.bootDecoder.decode(value, { stream: true });
+              this.bootBuffer += text;
+              if (this.bootBuffer.length > 2000) this.bootBuffer = this.bootBuffer.slice(-2000);
+
+              if (this.bootBuffer.includes('DOWNLOAD_BOOT')) {
+                if (this.state.chipMode !== 'Download') {
+                  this.updateState({ chipMode: 'Download' });
+                }
+              } else if (this.bootBuffer.includes('SPI_FAST_FLASH_BOOT') || this.bootBuffer.includes('FLASH_BOOT')) {
+                if (this.state.chipMode !== 'Execution') {
+                  this.updateState({ chipMode: 'Execution' });
+                }
+              }
+
+              if (this.onDataCallback) {
+                this.onDataCallback(value);
+              }
             }
           }
         } catch (readErr) {
@@ -252,7 +281,7 @@ class SerialManager {
       this.reader = null;
     }
     
-    this.updateState({ isConnected: false, errorClass: 'DeviceLost', error: 'Device physically disconnected.' });
+    this.updateState({ isConnected: false, errorClass: 'DeviceLost', error: 'Device physically disconnected.', chipMode: 'Unknown' });
     if (this.onDisconnectCallback) {
       this.onDisconnectCallback();
     }
@@ -316,12 +345,13 @@ class SerialManager {
     this.reconnectTimer = setTimeout(retry, delay);
   }
 
-  private handleError(err: any) {
-    let message = err?.message || String(err);
+  private handleError(err: unknown) {
+    let message = err instanceof Error ? err.message : String(err);
+    const errName = err instanceof Error ? err.name : '';
     let errClass: SerialConnectionState['errorClass'] = 'Unknown';
 
     const isUserCancel = 
-      err.name === 'NotFoundError' || 
+      errName === 'NotFoundError' || 
       message.includes('No port selected') || 
       message.includes('User cancelled') ||
       message.includes('cancel');
@@ -333,13 +363,13 @@ class SerialManager {
       return;
     }
 
-    if (err.name === 'SecurityError') {
+    if (errName === 'SecurityError') {
       errClass = 'Security';
       message = 'Security blocked: Permission denied or site blocked by system rules.';
-    } else if (err.name === 'NetworkError' || message.includes('busy') || message.includes('already open')) {
+    } else if (errName === 'NetworkError' || message.includes('busy') || message.includes('already open')) {
       errClass = 'Busy';
       message = 'Port is busy: Currently claimed by another tab, serial terminal, or OS process.';
-    } else if (err.name === 'InvalidStateError' || message.includes('device lost')) {
+    } else if (errName === 'InvalidStateError' || message.includes('device lost')) {
       errClass = 'DeviceLost';
       message = 'Device lost: Port disconnected from system during operation.';
     }
