@@ -89,6 +89,7 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
       fontSize: 14,
       disableStdin: true,
       cursorBlink: false,
+      convertEol: true, // Fixes staircase formatting
     });
     
     const fitAddon = new FitAddon();
@@ -103,7 +104,10 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit();
     });
-    resizeObserver.observe(terminalRef.current);
+    // Observe the parent container instead of the terminal container to avoid recursive resizing
+    if (terminalRef.current.parentElement) {
+      resizeObserver.observe(terminalRef.current.parentElement);
+    }
 
     return () => {
       resizeObserver.disconnect();
@@ -184,14 +188,15 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
         
         {/* XTerm Container */}
         <div 
-          ref={terminalRef} 
           className={style({
             backgroundColor: 'gray-900',
             padding: 16,
-            height: 350,
-            overflow: 'hidden'
+            minWidth: 0,
           }) as any}
-        />
+          style={{ background: '#111827' }}
+        >
+          <div ref={terminalRef} style={{ height: 350, width: '100%', overflow: 'hidden', background: '#111827' }} />
+        </div>
 
         {/* Command bar input form */}
         <form 

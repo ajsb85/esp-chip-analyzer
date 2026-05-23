@@ -27,6 +27,7 @@ export const TerminalView: FC<TerminalViewProps> = ({ lines, height = 300 }) => 
       fontSize: 12,
       disableStdin: true,
       cursorBlink: false,
+      convertEol: true, // Fixes staircase formatting (interprets \n as \r\n)
     });
     
     const fitAddon = new FitAddon();
@@ -41,7 +42,10 @@ export const TerminalView: FC<TerminalViewProps> = ({ lines, height = 300 }) => 
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit();
     });
-    resizeObserver.observe(terminalRef.current);
+    // Observe the parent container instead of the terminal container to avoid recursive resizing
+    if (terminalRef.current.parentElement) {
+      resizeObserver.observe(terminalRef.current.parentElement);
+    }
 
     return () => {
       resizeObserver.disconnect();
@@ -59,15 +63,16 @@ export const TerminalView: FC<TerminalViewProps> = ({ lines, height = 300 }) => 
 
   return (
     <div 
-      ref={terminalRef} 
       className={style({
         borderRadius: 'lg',
         overflow: 'hidden',
         width: '100%',
-        padding: 8,
-        backgroundColor: 'gray-900'
+        backgroundColor: 'gray-900',
+        minWidth: 0, // Fixes flexbox infinite stretch
       }) as any}
-      style={{ height }}
-    />
+      style={{ height, boxSizing: 'border-box', padding: '12px', background: '#111827' }}
+    >
+      <div ref={terminalRef} style={{ width: '100%', height: '100%', overflow: 'hidden', background: '#111827' }} />
+    </div>
   );
 };
