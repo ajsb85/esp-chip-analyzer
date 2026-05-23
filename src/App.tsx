@@ -7,7 +7,6 @@ import { ConnectionPanel } from './components/ConnectionPanel';
 import { SignalMonitor } from './components/SignalMonitor';
 import { UsbConverterCard } from './components/UsbConverterCard';
 import { EspChipCard } from './components/EspChipCard';
-import { AutoProgrammerCard } from './components/AutoProgrammerCard';
 import { FirmwareFlasherCard } from './components/FirmwareFlasherCard';
 import { FirmwareForensicCard } from './components/FirmwareForensicCard';
 import { ConsoleTerminal } from './components/ConsoleTerminal';
@@ -219,7 +218,6 @@ function App() {
                 <EspChipCard 
                   serialState={serialState}
                 />
-                <AutoProgrammerCard />
               </div>
             </TabPanel>
             <TabPanel id="signals">
