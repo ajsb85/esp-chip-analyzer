@@ -10,6 +10,7 @@ import { style } from "@react-spectrum/s2/style" with { type: "macro" };
 import SearchIcon from '@react-spectrum/s2/icons/Search';
 import PluginIcon from '@react-spectrum/s2/icons/Plugin';
 import InfoCircleIcon from '@react-spectrum/s2/icons/InfoCircle';
+import RefreshIcon from '@react-spectrum/s2/icons/Refresh';
 
 interface ConnectionPanelProps {
   serialState: SerialConnectionState;
@@ -44,6 +45,7 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
   const [selectedBaud, setSelectedBaud] = useState<number>(115200);
   const [pairedPorts, setPairedPorts] = useState<SerialPort[]>([]);
   const [selectedPortIndex, setSelectedPortIndex] = useState<number>(-1);
+  const [recovering, setRecovering] = useState(false);
 
   const baudOptions = [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600, 1500000, 2000000];
 
@@ -83,6 +85,15 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
     }
   };
 
+  const handleRecoverClick = async () => {
+    setRecovering(true);
+    try {
+      await serialManager.recoverActiveConnection();
+    } finally {
+      setRecovering(false);
+    }
+  };
+
   const getPortDisplayName = (port: SerialPort) => {
     const info = port.getInfo();
     if (info.usbVendorId) {
@@ -107,7 +118,8 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
             }
             fillStyle="subtle"
           >
-            {serialState.chipMode === 'Download' ? 'UART Download Mode' : 
+            {serialState.isPortBusy ? `Reserved: ${serialState.activeOperation}` :
+             serialState.chipMode === 'Download' ? 'UART Download Mode' : 
              serialState.chipMode === 'Execution' ? 'Execution Mode' : 'Mode Unknown'}
           </Badge>
         )}
@@ -144,7 +156,7 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
           label="Active Device" 
           value={selectedPortIndex.toString()}
           onSelectionChange={(val) => setSelectedPortIndex(Number(val))}
-          isDisabled={serialState.isConnected}
+          isDisabled={serialState.isConnected || serialState.isPortBusy}
           styles={style({ width: '100%' }) as any}
         >
           {pairedPorts.map((p, idx) => (
@@ -175,7 +187,7 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
       {/* Select Port Trigger */}
       <Button 
         onPress={handleSelectPort}
-        isDisabled={serialState.isConnected}
+        isDisabled={serialState.isConnected || serialState.isPortBusy}
         variant="secondary"
         styles={style({ width: 'full' }) as any}
       >
@@ -188,7 +200,7 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
         label="Baud Rate (bps)" 
         value={selectedBaud.toString()}
         onSelectionChange={(val) => setSelectedBaud(Number(val))}
-        isDisabled={serialState.isConnected}
+        isDisabled={serialState.isConnected || serialState.isPortBusy}
         styles={style({ width: '100%' }) as any}
       >
         {baudOptions.map(baud => (
@@ -202,20 +214,51 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
       {!serialState.isConnected ? (
         <Button 
           onPress={handleConnectClick} 
-          isDisabled={pairedPorts.length === 0}
+          isDisabled={pairedPorts.length === 0 || serialState.isPortBusy}
           variant="accent"
           styles={style({ width: 'full', marginTop: 8 }) as any}
         >
           Connect Analyzer
         </Button>
       ) : (
-        <Button 
-          onPress={onDisconnect} 
-          variant="negative"
-          styles={style({ width: 'full', marginTop: 8 }) as any}
-        >
-          Disconnect Analyzer
-        </Button>
+        <div className={style({ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }) as any}>
+          {serialState.portMetadata && (
+            <div className={style({ display: 'flex', flexDirection: 'column', gap: 4, font: 'body-xs', color: 'neutral-subdued', backgroundColor: 'gray-50', padding: 12, borderRadius: 'lg', borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200' }) as any}>
+              <span>Transport: <strong>{serialState.portMetadata.transport}</strong></span>
+              <span>Streams: read {serialState.portMetadata.readableState}, write {serialState.portMetadata.writableState}</span>
+              <span>Open: {serialState.portMetadata.portOpen ? 'yes' : 'no'} / Connected: {serialState.portMetadata.physicallyConnected ? 'yes' : 'no'}</span>
+              <span>Recovery count: {serialState.portMetadata.recoveryCount}</span>
+            </div>
+          )}
+
+          <div className={style({ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }) as any}>
+            <Button 
+              onPress={() => serialManager.refreshMetadata()} 
+              variant="secondary"
+              isDisabled={serialState.isPortBusy}
+            >
+              <RefreshIcon />
+              Refresh
+            </Button>
+            <Button 
+              onPress={handleRecoverClick} 
+              variant="secondary"
+              isDisabled={serialState.isPortBusy || recovering}
+            >
+              <RefreshIcon />
+              {recovering ? 'Recovering...' : 'Recover Stream'}
+            </Button>
+          </div>
+
+          <Button 
+            onPress={onDisconnect} 
+            variant="negative"
+            isDisabled={serialState.isPortBusy}
+            styles={style({ width: 'full' }) as any}
+          >
+            Disconnect Analyzer
+          </Button>
+        </div>
       )}
     </div>
   );

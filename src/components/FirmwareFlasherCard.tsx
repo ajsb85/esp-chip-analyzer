@@ -78,6 +78,8 @@ export const FirmwareFlasherCard: FC<FirmwareFlasherCardProps> = ({ serialState 
   const [selectedMethod, setSelectedMethod] = useState<string>('merged');
   const [partitions, setPartitions] = useState<PartitionEntry[]>([]);
   const [useStub, setUseStub] = useState<boolean>(true);
+  const [verifyMd5, setVerifyMd5] = useState<boolean>(true);
+  const [eraseAll, setEraseAll] = useState<boolean>(false);
 
   const activeMethod = firmwareOptions.find(o => o.id === selectedMethod) || firmwareOptions[0];
 
@@ -113,21 +115,67 @@ export const FirmwareFlasherCard: FC<FirmwareFlasherCardProps> = ({ serialState 
         fileArray.push({ data: new Uint8Array(buffer), address: file.address });
       }
 
-      await serialManager.runExclusiveAction(async (port) => {
+      const result = await serialManager.runExclusiveAction(async (port) => {
         return await espDiagnostics.flashFirmware(
           port,
           flashBaud,
           fileArray,
-          { useStub },
+          { useStub, verifyMd5, eraseAll },
           (msg, percent) => {
             setProgressMsg(msg);
             if (percent !== undefined) setProgressPercent(percent);
           }
         );
+      }, {
+        label: 'Firmware flasher',
+        restoreDelayMs: 800,
       });
+
+      if (result.success) {
+        setProgressMsg(`Flash complete: wrote ${(result.bytesWritten / 1024).toFixed(1)} KB to ${result.chipName}${result.flash ? ` (${result.flash.detectedSize} flash)` : ''}.`);
+        setProgressPercent(100);
+      } else {
+        setProgressMsg('Flash failed. Review the ESPTool log line above and try 115200 bps or no-stub mode.');
+        setProgressPercent(undefined);
+      }
       
     } catch (err: unknown) {
       setProgressMsg(`Flash failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setFlashing(false);
+    }
+  };
+
+  const handleEraseFlash = async () => {
+    if (!serialState.port) return;
+    setFlashing(true);
+    setProgressMsg('Initiating erase sequence...');
+    setProgressPercent(undefined);
+
+    try {
+      const success = await serialManager.runExclusiveAction(async (port) => {
+        return await espDiagnostics.eraseAllFlash(
+          port,
+          flashBaud,
+          { useStub },
+          (msg) => {
+            setProgressMsg(msg);
+          }
+        );
+      }, {
+        label: 'Firmware eraser',
+        restoreDelayMs: 800,
+      });
+
+      if (success) {
+        setProgressMsg('Flash erased successfully.');
+        setProgressPercent(100);
+      } else {
+        setProgressMsg('Erase failed. Review the ESPTool log and try again.');
+        setProgressPercent(undefined);
+      }
+    } catch (err: unknown) {
+      setProgressMsg(`Erase failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setFlashing(false);
     }
@@ -195,6 +243,15 @@ export const FirmwareFlasherCard: FC<FirmwareFlasherCardProps> = ({ serialState 
         </Text>
       </div>
 
+      <div className={style({ display: 'grid', gridTemplateColumns: { default: '1fr', md: '1fr 1fr' }, gap: 12, backgroundColor: 'gray-50', padding: 12, borderRadius: 'lg', borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200' }) as any}>
+        <Switch isSelected={verifyMd5} onChange={setVerifyMd5}>
+          <Text styles={style({ font: 'body-xs', fontWeight: 'bold' })}>Verify Flash MD5</Text>
+        </Switch>
+        <Switch isSelected={eraseAll} onChange={setEraseAll}>
+          <Text styles={style({ font: 'body-xs', fontWeight: 'bold' })}>Erase All Before Flash</Text>
+        </Switch>
+      </div>
+
       {partitions.length > 0 && (
         <div className={style({ backgroundColor: 'gray-50', padding: 12, borderRadius: 'lg', borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200' }) as any}>
           <div className={style({ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }) as any}>
@@ -226,15 +283,32 @@ export const FirmwareFlasherCard: FC<FirmwareFlasherCardProps> = ({ serialState 
 
       {serialState.isConnected ? (
         <div className={style({ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }) as any}>
-          <Button 
-            variant="accent" 
-            onPress={handleFlash}
-            isDisabled={flashing}
-            styles={style({ width: 'full' }) as any}
-          >
-            {flashing ? <DataUploadIcon /> : <PlayIcon />}
-            <Text>{flashing ? 'Flashing in Progress...' : 'Start Flash Sequence'}</Text>
-          </Button>
+          <div className={style({ display: 'flex', gap: 12 }) as any}>
+            <Button 
+              variant="accent" 
+              onPress={handleFlash}
+              isDisabled={flashing || (serialState.isPortBusy && serialState.activeOperation !== 'Firmware flasher')}
+              styles={style({ flex: 2 }) as any}
+            >
+              {flashing ? <DataUploadIcon /> : <PlayIcon />}
+              <Text>{flashing ? 'Flashing in Progress...' : 'Start Flash Sequence'}</Text>
+            </Button>
+            <Button 
+              variant="secondary" 
+              onPress={handleEraseFlash}
+              isDisabled={flashing || (serialState.isPortBusy && serialState.activeOperation !== 'Firmware flasher' && serialState.activeOperation !== 'Firmware eraser')}
+              styles={style({ flex: 1 }) as any}
+            >
+              <AlertTriangleIcon />
+              <Text>Erase Flash</Text>
+            </Button>
+          </div>
+
+          {serialState.isPortBusy && serialState.activeOperation !== 'Firmware flasher' && serialState.activeOperation !== 'Firmware eraser' && (
+            <Text styles={style({ font: 'body-xs', color: 'neutral-subdued' })}>
+              Port is reserved by {serialState.activeOperation}. Flashing will be available after that operation restores the console.
+            </Text>
+          )}
 
           {progressMsg && (
             <div className={style({ 

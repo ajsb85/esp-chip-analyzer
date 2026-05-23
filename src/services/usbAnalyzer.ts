@@ -9,6 +9,15 @@ export interface UsbConverterDetails {
   usbVersion: string;
   maxPower?: string;
   attributes?: string;
+  webUsbStatus?: string;
+  deviceVersion?: string;
+  deviceClass?: string;
+  deviceSubclass?: string;
+  deviceProtocol?: string;
+  configurationsCount?: number;
+  activeConfiguration?: string;
+  interfaceSummary?: string[];
+  endpointSummary?: string[];
   
   // CP210x specific parameters
   cp210xFlushBmp?: string;
@@ -25,14 +34,23 @@ class UsbAnalyzer {
    * Prompts the user to authorize the USB device via WebUSB.
    * Targets Silicon Labs default Vendor ID 0x10C4.
    */
-  public async requestUsbAccess(): Promise<USBDevice | null> {
+  public async requestUsbAccess(vid?: number, pid?: number): Promise<USBDevice | null> {
     try {
       if (!navigator.usb) {
         console.warn('WebUSB API is not supported in this browser.');
         return null;
       }
+      const filters = vid
+        ? [{ vendorId: vid, ...(pid ? { productId: pid } : {}) }]
+        : [
+            { vendorId: 0x303A },
+            { vendorId: 0x10C4 },
+            { vendorId: 0x0403 },
+            { vendorId: 0x1A86 },
+            { vendorId: 0x067B },
+          ];
       const device = await navigator.usb.requestDevice({
-        filters: []
+        filters
       });
       return device;
     } catch (err) {
@@ -68,7 +86,8 @@ class UsbAnalyzer {
       vendorId: `0x${vid.toString(16).toUpperCase().padStart(4, '0')}`,
       productId: `0x${pid.toString(16).toUpperCase().padStart(4, '0')}`,
       model: this.classifyConverterModelName(vid, pid, null),
-      usbVersion: '2.0 (estimated)'
+      usbVersion: '2.0 (estimated)',
+      webUsbStatus: 'Not paired'
     };
 
     const usbDevice = await this.findPairedUsbDevice(vid, pid);
@@ -86,15 +105,23 @@ class UsbAnalyzer {
       productId: `0x${usbDevice.productId.toString(16).toUpperCase().padStart(4, '0')}`,
       model: defaultDetails.model,
       usbVersion: `${usbDevice.usbVersionMajor}.${usbDevice.usbVersionMinor}`,
+      webUsbStatus: 'Paired',
       maxPower: usbDevice.configuration?.interfaces?.[0]?.alternate?.endpoints?.[0]?.packetSize 
         ? 'N/A' 
         : undefined
     };
 
+    this.attachWebUsbDescriptorSummary(details, usbDevice);
+
     // If it's Silicon Labs, run control transfers
     if (usbDevice.vendorId === 0x10C4) {
+      let openedHere = false;
       try {
-        await usbDevice.open();
+        const deviceWithState = usbDevice as USBDevice & { opened?: boolean };
+        if (!deviceWithState.opened) {
+          await usbDevice.open();
+          openedHere = true;
+        }
         
         // Read Model (ITEM_MODEL = 0x370B)
         // Set up setup parameters for controlTransferIn
@@ -146,14 +173,96 @@ class UsbAnalyzer {
         console.warn('[WebUSB] Failed to perform vendor control transfers:', err);
         details.model += ' (Control transfer blocked by OS driver)';
       } finally {
-        try {
-          await usbDevice.close();
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (_e) { /* ignore */ }
+        if (openedHere) {
+          try {
+            await usbDevice.close();
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          } catch (_e) { /* ignore */ }
+        }
       }
     }
 
     return details;
+  }
+
+  private attachWebUsbDescriptorSummary(details: UsbConverterDetails, usbDevice: USBDevice): void {
+    const device = usbDevice as USBDevice & {
+      deviceVersionMajor?: number;
+      deviceVersionMinor?: number;
+      deviceVersionSubminor?: number;
+      deviceClass?: number;
+      deviceSubclass?: number;
+      deviceProtocol?: number;
+      configurations?: Array<{
+        configurationValue?: number;
+        configurationName?: string;
+        interfaces?: Array<{
+          interfaceNumber?: number;
+          alternates?: Array<{
+            alternateSetting?: number;
+            interfaceClass?: number;
+            interfaceSubclass?: number;
+            interfaceProtocol?: number;
+            interfaceName?: string;
+            endpoints?: Array<{
+              endpointNumber?: number;
+              direction?: string;
+              type?: string;
+              packetSize?: number;
+            }>;
+          }>;
+          alternate?: {
+            alternateSetting?: number;
+            interfaceClass?: number;
+            interfaceSubclass?: number;
+            interfaceProtocol?: number;
+            interfaceName?: string;
+            endpoints?: Array<{
+              endpointNumber?: number;
+              direction?: string;
+              type?: string;
+              packetSize?: number;
+            }>;
+          };
+        }>;
+      }>;
+    };
+
+    if (device.deviceVersionMajor !== undefined) {
+      details.deviceVersion = `${device.deviceVersionMajor}.${device.deviceVersionMinor ?? 0}.${device.deviceVersionSubminor ?? 0}`;
+    }
+    if (device.deviceClass !== undefined) {
+      details.deviceClass = this.formatClassCode(device.deviceClass);
+      details.deviceSubclass = this.formatByte(device.deviceSubclass);
+      details.deviceProtocol = this.formatByte(device.deviceProtocol);
+    }
+
+    const configurations = device.configurations || [];
+    details.configurationsCount = configurations.length;
+    const activeConfiguration = (device.configuration as (typeof configurations)[number] | undefined) || configurations[0];
+    if (!activeConfiguration) return;
+
+    const configValue = activeConfiguration.configurationValue ?? 0;
+    details.activeConfiguration = `Configuration ${configValue}${activeConfiguration.configurationName ? ` (${activeConfiguration.configurationName})` : ''}`;
+
+    const interfaceSummary: string[] = [];
+    const endpointSummary: string[] = [];
+
+    for (const iface of activeConfiguration.interfaces || []) {
+      const alternate = iface.alternate || iface.alternates?.[0];
+      if (!alternate) continue;
+      interfaceSummary.push(
+        `IF${iface.interfaceNumber ?? 0}/ALT${alternate.alternateSetting ?? 0}: class ${this.formatClassCode(alternate.interfaceClass)} subclass ${this.formatByte(alternate.interfaceSubclass)} protocol ${this.formatByte(alternate.interfaceProtocol)}${alternate.interfaceName ? ` (${alternate.interfaceName})` : ''}`,
+      );
+      for (const endpoint of alternate.endpoints || []) {
+        endpointSummary.push(
+          `EP${endpoint.endpointNumber ?? '?'} ${endpoint.direction || 'unknown'} ${endpoint.type || 'unknown'} ${endpoint.packetSize ?? '?'}B`,
+        );
+      }
+    }
+
+    details.interfaceSummary = interfaceSummary;
+    details.endpointSummary = endpointSummary;
   }
 
   private classifyConverter(vid: number, pid: number): UsbConverterDetails['type'] {
@@ -182,7 +291,7 @@ class UsbAnalyzer {
       case 0x0403: return 'FTDI USB Serial Converter';
       case 0x1A86: return pid === 0x5523 ? 'CH341 USB Serial Adapter' : 'CH340 USB to UART Bridge';
       case 0x067B: return 'PL2303 USB Serial Adapter';
-      case 0x303A: return 'Espressif USB JTAG/serial debug unit';
+      case 0x303A: return pid === 0x1001 ? 'USB JTAG/serial debug unit' : 'Espressif USB CDC device';
       default: return 'USB-to-UART Adapter';
     }
   }
@@ -192,7 +301,7 @@ class UsbAnalyzer {
       if (vid === 0x0403) return 'FT232R / FT2232';
       if (vid === 0x1A86) return pid === 0x5523 ? 'CH341A' : 'CH340';
       if (vid === 0x067B) return 'PL2303HX / TA';
-      if (vid === 0x303A) return 'ESP32 Native USB-OTG';
+      if (vid === 0x303A) return pid === 0x1001 ? 'ESP32 Native USB-JTAG/Serial CDC' : 'ESP32 Native USB-OTG CDC';
       return 'N/A';
     }
 
@@ -214,6 +323,21 @@ class UsbAnalyzer {
       case 0x20: return 'CP2102N MPT';
       default: return `CP210x (Unknown model: ${modelCode})`;
     }
+  }
+
+  private formatByte(value?: number): string {
+    if (value === undefined) return 'N/A';
+    return `0x${value.toString(16).toUpperCase().padStart(2, '0')}`;
+  }
+
+  private formatClassCode(value?: number): string {
+    if (value === undefined) return 'N/A';
+    const label = value === 0x02 ? 'CDC Communications' :
+      value === 0x0A ? 'CDC Data' :
+      value === 0xFF ? 'Vendor Specific' :
+      value === 0x00 ? 'Per-interface' :
+      'USB Class';
+    return `${this.formatByte(value)} ${label}`;
   }
 }
 

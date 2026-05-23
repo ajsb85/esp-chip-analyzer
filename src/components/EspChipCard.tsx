@@ -58,6 +58,9 @@ export const EspChipCard: FC<EspChipCardProps> = ({ serialState }) => {
           { useStub },
           (text: string) => setProgressMsg(text)
         );
+      }, {
+        label: 'Espressif chip diagnostics',
+        restoreDelayMs: 500,
       });
       
       if (details) {
@@ -76,6 +79,9 @@ export const EspChipCard: FC<EspChipCardProps> = ({ serialState }) => {
     await serialManager.runExclusiveAction(async (port) => {
       await espDiagnostics.hardReset(port);
       return true;
+    }, {
+      label: 'Hard reset',
+      restoreDelayMs: 500,
     });
     setProgressMsg('Hard reset signal issued.');
   };
@@ -148,6 +154,7 @@ export const EspChipCard: FC<EspChipCardProps> = ({ serialState }) => {
             <Button 
               variant="accent" 
               onPress={handleAnalyzeChip}
+              isDisabled={serialState.isPortBusy}
             >
               <PlayIcon />
               Run Chip eFuse Scan
@@ -189,6 +196,16 @@ export const EspChipCard: FC<EspChipCardProps> = ({ serialState }) => {
                 <span className={style({ font: 'body-xs', color: 'neutral-subdued' }) as any}>Flash Size</span>
                 <Badge variant="notice" fillStyle="subtle">{chipDetails.flashSize}</Badge>
               </div>
+              <div className={metaListStyles as any}>
+                <span className={style({ font: 'body-xs', color: 'neutral-subdued' }) as any}>Bootloader Transport</span>
+                <span className={style({ font: 'body-sm', fontWeight: 'bold', color: 'neutral' }) as any}>{chipDetails.transport}</span>
+              </div>
+              {chipDetails.romExpectedCrystal && (
+                <div className={metaListStyles as any}>
+                  <span className={style({ font: 'body-xs', color: 'neutral-subdued' }) as any}>ROM XTAL Expectation</span>
+                  <span className={style({ font: 'body-sm', fontWeight: 'bold', color: 'neutral' }) as any}>{chipDetails.romExpectedCrystal}</span>
+                </div>
+              )}
             </div>
             
             <div className={style({ marginTop: 12, borderTopStyle: 'solid', borderTopWidth: 1, borderTopColor: 'gray-200', paddingTop: 12 }) as any}>
@@ -206,11 +223,65 @@ export const EspChipCard: FC<EspChipCardProps> = ({ serialState }) => {
             </div>
           </div>
 
+          {chipDetails.flash && (
+            <div className={style({ backgroundColor: 'gray-50', padding: 12, borderRadius: 'lg', borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200' }) as any}>
+              <span className={style({ font: 'body-xs', fontWeight: 'bold', color: 'neutral', display: 'block', marginBottom: 8 }) as any}>SPI Flash Identity</span>
+              <div className={style({ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, font: 'body-xs' }) as any}>
+                <span>Flash ID: <strong>{chipDetails.flash.flashId}</strong></span>
+                <span>Manufacturer: <strong>{chipDetails.flash.manufacturerId}</strong></span>
+                <span>Memory Type: <strong>{chipDetails.flash.memoryType}</strong></span>
+                <span>Capacity ID: <strong>{chipDetails.flash.capacityId}</strong></span>
+              </div>
+            </div>
+          )}
+
+          {chipDetails.security && (
+            <div className={style({ backgroundColor: 'gray-50', padding: 12, borderRadius: 'lg', borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200' }) as any}>
+              <span className={style({ font: 'body-xs', fontWeight: 'bold', color: 'neutral', display: 'block', marginBottom: 8 }) as any}>Security eFuse Snapshot</span>
+              <div className={style({ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, font: 'body-xs', marginBottom: 8 }) as any}>
+                <span>Secure Boot: <strong>{chipDetails.security.secureBoot}</strong></span>
+                <span>Flash Encryption: <strong>{chipDetails.security.flashEncryption}</strong></span>
+                <span>Manual Encrypt DL: <strong>{chipDetails.security.downloadManualEncrypt}</strong></span>
+                <span>Flash Encryption Key: <strong>{chipDetails.security.flashEncryptionKey}</strong></span>
+              </div>
+              {chipDetails.security.keyPurposes.length > 0 && (
+                <div className={style({ display: 'flex', flexWrap: 'wrap', gap: 8 }) as any}>
+                  {chipDetails.security.keyPurposes.map((purpose, i) => (
+                    <Badge key={i} variant="neutral" fillStyle="subtle">{purpose}</Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {chipDetails.registers.length > 0 && (
+            <div className={style({ backgroundColor: 'gray-50', padding: 12, borderRadius: 'lg', borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200' }) as any}>
+              <span className={style({ font: 'body-xs', fontWeight: 'bold', color: 'neutral', display: 'block', marginBottom: 8 }) as any}>Register Snapshot</span>
+              <div className={style({ display: 'flex', flexDirection: 'column', gap: 4, font: 'body-xs', fontFamily: 'code' }) as any}>
+                {chipDetails.registers.map((reg, i) => (
+                  <span key={i}>{reg.name}: {reg.address} = {reg.value}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {chipDetails.memoryRegions.length > 0 && (
+            <div>
+              <span className={style({ font: 'body-xs', fontWeight: 'bold', color: 'neutral', display: 'block', marginBottom: 8 }) as any}>ROM Memory Map</span>
+              <div className={style({ display: 'flex', flexWrap: 'wrap', gap: 8 }) as any}>
+                {chipDetails.memoryRegions.slice(0, 10).map((region, i) => (
+                  <Badge key={i} variant="neutral" fillStyle="outline">{region}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Reset Action Buttons */}
           <div className={style({ display: 'flex', gap: 12 }) as any}>
             <Button 
               variant="secondary" 
               onPress={handleHardReset}
+              isDisabled={serialState.isPortBusy}
               styles={style({ flex: 1 }) as any}
             >
               <RefreshIcon />
@@ -219,6 +290,7 @@ export const EspChipCard: FC<EspChipCardProps> = ({ serialState }) => {
             <Button 
               variant="accent" 
               onPress={handleAnalyzeChip}
+              isDisabled={serialState.isPortBusy}
               styles={style({ flex: 1 }) as any}
             >
               <RefreshIcon />

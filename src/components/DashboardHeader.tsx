@@ -64,6 +64,13 @@ export const DashboardHeader: FC<DashboardHeaderProps> = ({
       );
     }
     if (serialState.isConnected) {
+      if (serialState.isPortBusy) {
+        return (
+          <StatusLight variant="notice">
+            Port reserved ({serialState.activeOperation})
+          </StatusLight>
+        );
+      }
       return (
         <StatusLight variant="positive">
           Connected ({serialState.baudRate.toLocaleString()} bps)

@@ -350,7 +350,8 @@ export const UsbConverterCard: FC<UsbConverterCardProps> = ({ serialState }) => 
   }, [fetchDetails]);
 
   const handleRequestWebUsb = async () => {
-    const granted = await usbAnalyzer.requestUsbAccess();
+    const info = serialState.port?.getInfo();
+    const granted = await usbAnalyzer.requestUsbAccess(info?.usbVendorId, info?.usbProductId);
     if (granted) {
       await fetchDetails();
     }
@@ -365,6 +366,11 @@ export const UsbConverterCard: FC<UsbConverterCardProps> = ({ serialState }) => 
         return await ch340bManager.readConfig(port, (current, total) => {
           setCh34xProgress({ current, total });
         });
+      }, {
+        label: 'CH34x EEPROM scan',
+        openPort: true,
+        baudRate: 300,
+        restoreDelayMs: 500,
       });
       setCh340bConfig({
         chipType: config.chipType,
@@ -437,6 +443,11 @@ export const UsbConverterCard: FC<UsbConverterCardProps> = ({ serialState }) => 
         }, (current, total) => {
           setCh34xProgress({ current, total });
         });
+      }, {
+        label: 'CH34x EEPROM write',
+        openPort: true,
+        baudRate: 300,
+        restoreDelayMs: 800,
       });
       setCh340bMessage({ type: 'success', text: `WCH ${ch340bConfig.chipType} EEPROM written successfully! Re-plug converter to apply.` });
       await fetchDetails();
@@ -453,6 +464,10 @@ export const UsbConverterCard: FC<UsbConverterCardProps> = ({ serialState }) => 
   const getToolchainSnippet = (): string => {
     const port = toolchainPort.trim() || '/dev/ttyUSB0';
     const baud = toolchainBaud;
+    const adapterLabel = details?.type === 'CDC' ? 'Espressif native USB CDC/JTAG serial' :
+      details?.type === 'CH340' ? 'CH340 bridge' :
+      details?.type === 'CP210x' ? 'CP210x bridge' :
+      'USB serial bridge';
 
     switch (toolchainEnv) {
       case 'platformio':
@@ -470,7 +485,7 @@ monitor_filters = esp32_exception_decoder, time, colorize`;
         return `import serial
 import time
 
-# Initialize serial connection for CH340 Bridge
+# Initialize serial connection for ${adapterLabel}
 ser = serial.Serial(
     port='${port}',
     baudrate=${baud},
@@ -480,7 +495,7 @@ ser = serial.Serial(
     timeout=1.0
 )
 
-print(f"Connected to CH340 adapter on {ser.name} at {ser.baudrate} bps.")
+print(f"Connected to ${adapterLabel} on {ser.name} at {ser.baudrate} bps.")
 
 try:
     while True:
@@ -494,7 +509,7 @@ finally:
     ser.close()`;
 
       case 'arduinocli':
-        return `# Arduino CLI compile & upload commands over CH340
+        return `# Arduino CLI compile & upload commands over ${adapterLabel}
 arduino-cli compile --fqbn espressif:esp32:esp32dev sketch_name
 arduino-cli upload -p ${port} --fqbn espressif:esp32:esp32dev sketch_name
 
@@ -538,6 +553,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
   };
 
   const activeVariant = variantsList.find(v => v.name === selectedVariant) || variantsList[0];
+  const portMetadata = serialState.portMetadata;
 
   return (
     <div className={cardStyles as any}>
@@ -622,6 +638,101 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                     }
                   }) as any}>{details.model}</span>
                 </div>
+
+                {portMetadata && (
+                  <>
+                    <div className={metaItemStyles as any}>
+                      <span className={metaLabelStyles as any}>Web Serial Transport</span>
+                      <span className={metaValueStyles as any}>{portMetadata.transport}</span>
+                    </div>
+
+                    <div className={metaItemStyles as any}>
+                      <span className={metaLabelStyles as any}>Port Connection Key</span>
+                      <span className={metaValueStyles as any}>{portMetadata.connectionKey}</span>
+                    </div>
+
+                    <div className={metaItemStyles as any}>
+                      <span className={metaLabelStyles as any}>Open Parameters</span>
+                      <span className={metaValueStyles as any}>
+                        {portMetadata.openOptions.baudRate.toLocaleString()} bps, {portMetadata.openOptions.dataBits}{portMetadata.openOptions.parity[0].toUpperCase()}{portMetadata.openOptions.stopBits}, flow {portMetadata.openOptions.flowControl}
+                      </span>
+                    </div>
+
+                    <div className={metaItemStyles as any}>
+                      <span className={metaLabelStyles as any}>Stream Locks</span>
+                      <span className={metaValueStyles as any}>read {portMetadata.readableState} / write {portMetadata.writableState}</span>
+                    </div>
+
+                    <div className={metaItemStyles as any}>
+                      <span className={metaLabelStyles as any}>Port State</span>
+                      <span className={metaValueStyles as any}>
+                        {portMetadata.physicallyConnected ? 'physically connected' : 'not present'}, {portMetadata.portOpen ? 'open' : 'closed'}
+                      </span>
+                    </div>
+
+                    <div className={metaItemStyles as any}>
+                      <span className={metaLabelStyles as any}>Reset Strategy</span>
+                      <span className={metaValueStyles as any}>{portMetadata.suggestedReset}</span>
+                    </div>
+
+                    <div className={metaItemStyles as any}>
+                      <span className={metaLabelStyles as any}>Recovery Counters</span>
+                      <span className={metaValueStyles as any}>
+                        restored {portMetadata.recoveryCount}x, attempts {portMetadata.reconnectAttempts}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                <div className={metaItemStyles as any}>
+                  <span className={metaLabelStyles as any}>WebUSB Descriptor Status</span>
+                  <span className={metaValueStyles as any}>{details.webUsbStatus || 'Unknown'}</span>
+                </div>
+
+                {details.deviceVersion && (
+                  <div className={metaItemStyles as any}>
+                    <span className={metaLabelStyles as any}>USB Device Release</span>
+                    <span className={metaValueStyles as any}>{details.deviceVersion}</span>
+                  </div>
+                )}
+
+                {details.deviceClass && (
+                  <div className={metaItemStyles as any}>
+                    <span className={metaLabelStyles as any}>USB Device Class</span>
+                    <span className={metaValueStyles as any}>{details.deviceClass}</span>
+                  </div>
+                )}
+
+                {details.configurationsCount !== undefined && (
+                  <div className={metaItemStyles as any}>
+                    <span className={metaLabelStyles as any}>USB Configurations</span>
+                    <span className={metaValueStyles as any}>
+                      {details.configurationsCount}{details.activeConfiguration ? ` / ${details.activeConfiguration}` : ''}
+                    </span>
+                  </div>
+                )}
+
+                {details.interfaceSummary && details.interfaceSummary.length > 0 && (
+                  <div className={style({ paddingY: 8, borderBottomStyle: 'solid', borderBottomWidth: 1, borderBottomColor: 'gray-200' }) as any}>
+                    <span className={metaLabelStyles as any}>USB Interfaces</span>
+                    <div className={style({ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }) as any}>
+                      {details.interfaceSummary.map((line, i) => (
+                        <span key={i} className={style({ font: 'body-xs', fontFamily: 'code', color: 'neutral' }) as any}>{line}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {details.endpointSummary && details.endpointSummary.length > 0 && (
+                  <div className={style({ paddingY: 8, borderBottomStyle: 'solid', borderBottomWidth: 1, borderBottomColor: 'gray-200' }) as any}>
+                    <span className={metaLabelStyles as any}>USB Endpoints</span>
+                    <div className={style({ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }) as any}>
+                      {details.endpointSummary.map((line, i) => (
+                        <Badge key={i} variant="neutral" fillStyle="outline">{line}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* CP210x customized properties */}
                 {details.type === 'CP210x' && usbDevicePaired && (
@@ -714,7 +825,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                     <Button
                       onPress={handleReadCh340bConfig}
                       variant="primary"
-                      isDisabled={ch340bScanning}
+                      isDisabled={ch340bScanning || serialState.isPortBusy}
                       styles={style({ width: 'full' }) as any}
                     >
                       {ch340bScanning ? 'Scanning EEPROM registers...' : 'Scan CH34x EEPROM Config'}
@@ -940,21 +1051,21 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                         <Button
                           onPress={handleWriteCh340bConfig}
                           variant="accent"
-                          isDisabled={ch340bWriting}
+                          isDisabled={ch340bWriting || serialState.isPortBusy}
                         >
                           {ch340bWriting ? 'Writing EEPROM...' : 'Flash to EEPROM'}
                         </Button>
                         <Button
                           onPress={handleReadCh340bConfig}
                           variant="secondary"
-                          isDisabled={ch340bWriting}
+                          isDisabled={ch340bWriting || serialState.isPortBusy}
                         >
                           Reload
                         </Button>
                         <Button
                           onPress={() => setCh340bConfig(null)}
                           variant="secondary"
-                          isDisabled={ch340bWriting}
+                          isDisabled={ch340bWriting || serialState.isPortBusy}
                         >
                           Cancel
                         </Button>
@@ -1027,7 +1138,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                   variant={copied ? "accent" : "secondary"}
                   styles={style({ width: 'full', marginTop: 4 }) as any}
                 >
-                  {copied ? <><CheckmarkIcon /> Copied to Clipboard!</> : '<FileTextIcon /> Copy Config Snippet'}
+                  {copied ? <><CheckmarkIcon /> Copied to Clipboard!</> : <><FileTextIcon /> Copy Config Snippet</>}
                 </Button>
               </div>
             </div>

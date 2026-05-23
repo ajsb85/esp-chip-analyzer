@@ -1,0 +1,107 @@
+/**
+ * WebUSB implementation of ESP USB JTAG.
+ * Ported from esp_usb_jtag.c
+ */
+
+export class EspJtag {
+  private device: USBDevice | null = null;
+  private interfaceNumber: number = 0;
+  private endpointOut: number = 0;
+
+  public async connect(): Promise<boolean> {
+    try {
+      if (!navigator.usb) {
+        console.error('WebUSB not supported');
+        return false;
+      }
+      const device = await navigator.usb.requestDevice({
+        filters: [{ vendorId: 0x303A, productId: 0x1001 }]
+      });
+      await device.open();
+      
+      // Find JTAG interface (usually class 0xFF, subclass 0xFF, protocol 0x01)
+      let found = false;
+      if (device.configurations) {
+        for (const configuration of device.configurations) {
+          for (const iface of configuration.interfaces) {
+            const alt = iface.alternates[0];
+            if (alt.interfaceClass === 0xFF && alt.interfaceSubclass === 0xFF && alt.interfaceProtocol === 0x01) {
+              this.interfaceNumber = iface.interfaceNumber;
+              for (const ep of alt.endpoints) {
+                if (ep.direction === 'out') this.endpointOut = ep.endpointNumber;
+              }
+              if (device.configuration?.configurationValue !== configuration.configurationValue) {
+                await device.selectConfiguration(configuration.configurationValue);
+              }
+              await device.claimInterface(this.interfaceNumber);
+              found = true;
+              break;
+            }
+          }
+          if (found) break;
+        }
+      }
+
+      if (!found) {
+        console.error('JTAG interface not found on this device');
+        await device.close();
+        return false;
+      }
+
+      this.device = device;
+      return true;
+    } catch (e) {
+      console.error('Failed to connect to ESP USB JTAG:', e);
+      return false;
+    }
+  }
+
+  public async disconnect(): Promise<void> {
+    if (this.device) {
+      try {
+        await this.device.releaseInterface(this.interfaceNumber);
+        await this.device.close();
+      } catch (e) {
+        // ignore
+      }
+      this.device = null;
+    }
+  }
+
+  public isConnected(): boolean {
+    return this.device !== null;
+  }
+
+  /**
+   * Send CMD_RST
+   * bit 3=1, bit 2=0, bit 1=0, bit 0=srst
+   */
+  public async setReset(srst: boolean): Promise<void> {
+    if (!this.device) return;
+    const cmd = 0x8 | (srst ? 1 : 0);
+    const data = new Uint8Array([cmd]);
+    await this.device.transferOut(this.endpointOut, data);
+  }
+
+  /**
+   * Send CMD_FLUSH
+   */
+  public async flush(): Promise<void> {
+    if (!this.device) return;
+    const cmd = 0xA;
+    const data = new Uint8Array([cmd]);
+    await this.device.transferOut(this.endpointOut, data);
+  }
+
+  /**
+   * Send CMD_CLK
+   */
+  public async clock(tms: boolean, tdi: boolean, cap: boolean): Promise<void> {
+    if (!this.device) return;
+    const cmd = 0x0 | (cap ? 4 : 0) | (tdi ? 2 : 0) | (tms ? 1 : 0);
+    const data = new Uint8Array([cmd]);
+    await this.device.transferOut(this.endpointOut, data);
+  }
+}
+
+export const espJtag = new EspJtag();

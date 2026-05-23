@@ -69,8 +69,13 @@ interface USBDevice {
   readonly serialNumber?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly configuration?: any;
+  readonly configurations?: any[];
   open(): Promise<void>;
   close(): Promise<void>;
+  selectConfiguration(configurationValue: number): Promise<void>;
+  claimInterface(interfaceNumber: number): Promise<void>;
+  releaseInterface(interfaceNumber: number): Promise<void>;
+  transferOut(endpointNumber: number, data: BufferSource): Promise<any>;
   controlTransferIn(setup: {
     requestType: 'vendor' | 'standard' | 'class';
     recipient: 'device' | 'interface' | 'endpoint' | 'other';

@@ -6,6 +6,7 @@ import { DashboardFooter } from './components/DashboardFooter';
 import { ConnectionPanel } from './components/ConnectionPanel';
 import { SignalMonitor } from './components/SignalMonitor';
 import { UsbConverterCard } from './components/UsbConverterCard';
+import { EspJtagCard } from './components/EspJtagCard';
 import { EspChipCard } from './components/EspChipCard';
 import { FirmwareFlasherCard } from './components/FirmwareFlasherCard';
 import { FirmwareForensicCard } from './components/FirmwareForensicCard';
@@ -141,16 +142,7 @@ function App() {
   };
 
   const handleSendData = async (data: string) => {
-    const port = serialManager.getPort();
-    if (!port || !port.writable) return;
-    try {
-      const writer = port.writable.getWriter();
-      const encoder = new TextEncoder();
-      await writer.write(encoder.encode(data));
-      writer.releaseLock();
-    } catch (err) {
-      console.error('[SERIAL] Failed to write data:', err);
-    }
+    await serialManager.writeText(data);
   };
 
   const handleClearLogs = () => {
@@ -182,6 +174,7 @@ function App() {
           <UsbConverterCard 
             serialState={serialState}
           />
+          <EspJtagCard />
         </section>
 
         <section className={rightColumnStyles}>

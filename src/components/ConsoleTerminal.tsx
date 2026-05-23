@@ -337,10 +337,10 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
           }) as any}
         >
           <TextField 
-            placeholder={serialState.isConnected ? "Type command here and press Enter to send..." : "Console offline. Connect port to send data."}
+            placeholder={serialState.isPortBusy ? `Port reserved by ${serialState.activeOperation}...` : serialState.isConnected ? "Type command here and press Enter to send..." : "Console offline. Connect port to send data."}
             value={inputVal}
             onChange={setInputVal}
-            isDisabled={!serialState.isConnected}
+            isDisabled={!serialState.isConnected || serialState.isPortBusy}
             aria-label="Serial command input"
             styles={style({ 
               flexGrow: 1, 
@@ -349,7 +349,7 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
           <Button 
             variant="accent" 
             type="submit"
-            isDisabled={!serialState.isConnected || !inputVal}
+            isDisabled={!serialState.isConnected || serialState.isPortBusy || !inputVal}
             styles={style({ marginBottom: 0 }) as any}
           >
             Send

@@ -95,7 +95,7 @@ export const SignalMonitor: FC<SignalMonitorProps> = ({ serialState }) => {
 
   // Periodic polling for input signals (when connected)
   useEffect(() => {
-    if (!serialState.isConnected || !serialState.port) {
+    if (!serialState.isConnected || !serialState.port || serialState.isPortBusy) {
       setSupported(true);
       return;
     }
@@ -126,11 +126,11 @@ export const SignalMonitor: FC<SignalMonitorProps> = ({ serialState }) => {
       isActive = false;
       clearInterval(interval);
     };
-  }, [serialState.isConnected, serialState.port]);
+  }, [serialState.isConnected, serialState.port, serialState.isPortBusy]);
 
   // Handle setting outputs
   const handleToggleOutput = async (signal: 'dtr' | 'rts' | 'brk', checked: boolean) => {
-    if (!serialState.isConnected || !serialState.port) return;
+    if (!serialState.isConnected || !serialState.port || serialState.isPortBusy) return;
     try {
       const nextOutputs = { ...outputs, [signal]: checked };
       setOutputs(nextOutputs);
@@ -150,7 +150,7 @@ export const SignalMonitor: FC<SignalMonitorProps> = ({ serialState }) => {
    * EN = 0 (DTR=true), IO0 = 1 (RTS=false)
    */
   const handleResetPulse = async () => {
-    if (!serialState.isConnected || !serialState.port) return;
+    if (!serialState.isConnected || !serialState.port || serialState.isPortBusy) return;
     try {
       console.log("Resetting ESP32...");
       // Step 1: EN Low, IO0 High (DTR=true, RTS=false)
@@ -171,7 +171,7 @@ export const SignalMonitor: FC<SignalMonitorProps> = ({ serialState }) => {
    * Robust 4-step sequence for dual-transistor circuits
    */
   const handleBootloaderSequence = async () => {
-    if (!serialState.isConnected || !serialState.port) return;
+    if (!serialState.isConnected || !serialState.port || serialState.isPortBusy) return;
     try {
       console.log("Entering ESP32 Bootloader Mode...");
       
@@ -231,6 +231,7 @@ export const SignalMonitor: FC<SignalMonitorProps> = ({ serialState }) => {
               <Switch 
                 isSelected={outputs.dtr} 
                 onChange={(checked) => handleToggleOutput('dtr', checked)}
+                isDisabled={serialState.isPortBusy}
               >
                 DTR (Data Terminal Ready)
               </Switch>
@@ -238,6 +239,7 @@ export const SignalMonitor: FC<SignalMonitorProps> = ({ serialState }) => {
               <Switch 
                 isSelected={outputs.rts} 
                 onChange={(checked) => handleToggleOutput('rts', checked)}
+                isDisabled={serialState.isPortBusy}
               >
                 RTS (Request To Send)
               </Switch>
@@ -245,6 +247,7 @@ export const SignalMonitor: FC<SignalMonitorProps> = ({ serialState }) => {
               <Switch 
                 isSelected={outputs.brk} 
                 onChange={(checked) => handleToggleOutput('brk', checked)}
+                isDisabled={serialState.isPortBusy}
               >
                 BREAK (TX Line Toggle)
               </Switch>
@@ -264,11 +267,11 @@ export const SignalMonitor: FC<SignalMonitorProps> = ({ serialState }) => {
                 </code>
               </div>
               <ButtonGroup styles={style({ marginTop: 8 }) as any}>
-                <Button variant="secondary" onPress={handleResetPulse}>
+                <Button variant="secondary" onPress={handleResetPulse} isDisabled={serialState.isPortBusy}>
                   <RefreshIcon />
                   <Text>Trigger Reset</Text>
                 </Button>
-                <Button variant="accent" onPress={handleBootloaderSequence}>
+                <Button variant="accent" onPress={handleBootloaderSequence} isDisabled={serialState.isPortBusy}>
                   <DownloadIcon />
                   <Text>Enter Boot Mode</Text>
                 </Button>
