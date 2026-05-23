@@ -1,4 +1,4 @@
-const CACHE_NAME = 'esp-analyzer-cache-v4';
+const CACHE_NAME = 'esp-analyzer-cache-v1.1.2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -37,69 +37,69 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  const CACHE_NAME = 'esp-analyzer-cache-v5';
+  self.clients.claim();
+});
 
-  self.addEventListener('fetch', (event) => {
-    // Only handle standard HTTP GET requests
-    if (event.request.method !== 'GET') return;
+self.addEventListener('fetch', (event) => {
+  // Only handle standard HTTP GET requests
+  if (event.request.method !== 'GET') return;
 
-    const url = new URL(event.request.url);
-    // Prevent caching non-http schemes (like chrome-extension://)
-    if (!['http:', 'https:'].includes(url.protocol)) return;
+  const url = new URL(event.request.url);
+  // Prevent caching non-http schemes (like chrome-extension://)
+  if (!['http:', 'https:'].includes(url.protocol)) return;
 
-    // Match file extension of static images
-    const isStaticImage = url.pathname.match(/\.(png|jpg|jpeg|gif|svg|ico)$/);
+  // Match file extension of static images
+  const isStaticImage = url.pathname.match(/\.(png|jpg|jpeg|gif|svg|ico)$/);
 
-    if (isStaticImage) {
-      // Cache First strategy for static image files
-      event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
+  if (isStaticImage) {
+    // Cache First strategy for static image files
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        return fetch(event.request).then((response) => {
+          if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response;
+          }
+
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+
+          return response;
+        });
+      })
+    );
+  } else {
+    // Network First strategy for HTML/JS/CSS documents
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return response;
+      }).catch(() => {
+        // Network failed, attempt cache lookup
+        return caches.match(event.request).then((cachedResponse) => {
           if (cachedResponse) {
             return cachedResponse;
           }
-
-          return fetch(event.request).then((response) => {
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-
-            return response;
-          });
-        })
-      );
-    } else {
-      // Network First strategy for HTML/JS/CSS documents
-      event.respondWith(
-        fetch(event.request).then((response) => {
-          if (response && response.status === 200 && response.type === 'basic') {
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
+          // Fallback to offline index.html for navigation routes
+          if (event.request.mode === 'navigate') {
+            return caches.match('./index.html');
           }
-          return response;
-        }).catch(() => {
-          // Network failed, attempt cache lookup
-          return caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
-            // Fallback to offline index.html for navigation routes
-            if (event.request.mode === 'navigate') {
-              return caches.match('./index.html');
-            }
-            return new Response('Offline resource not cached.', {
-              status: 503,
-              statusText: 'Service Unavailable'
-            });
+          return new Response('Offline resource not cached.', {
+            status: 503,
+            statusText: 'Service Unavailable'
           });
-        })
-      );
-    }
-  });
+        });
+      })
+    );
+  }
 });

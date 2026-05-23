@@ -101,6 +101,7 @@ class SerialManager {
       this.onDisconnectCallback = onDisconnect;
       this.updateState({ error: null, errorClass: null, isReconnecting: false, chipMode: 'Unknown' });
 
+      console.log('[SERIAL] Attempting to open port at baud:', baudRate);
       await port.open({ baudRate });
       this.updateState({ isConnected: true, port, baudRate });
 
@@ -126,6 +127,7 @@ class SerialManager {
 
     if (this.reader) {
       try {
+        console.log('[SERIAL] Cancelling active reader...');
         await this.reader.cancel();
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_e) { /* ignore */ }
@@ -134,6 +136,7 @@ class SerialManager {
 
     if (this.state.port) {
       try {
+        console.log('[SERIAL] Closing port...');
         await this.state.port.close();
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_e) { /* ignore */ }
@@ -174,7 +177,7 @@ class SerialManager {
     const port = this.state.port;
     const originalBaud = this.state.baudRate;
 
-    // 1. Terminate the active reader loop
+    console.log('[EXCLUSIVE] Stopping background reader...');
     this.keepReading = false;
     if (this.reader) {
       try {
@@ -184,45 +187,50 @@ class SerialManager {
       this.reader = null;
     }
 
-    // 2. Close the serial port so the action can open it with its required parameters
+    console.log('[EXCLUSIVE] Closing port for external tool use...');
     try {
       await port.close();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (_e) { /* ignore */ }
 
+    // Wait for the browser/OS to sync
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     try {
-      // 3. Run the user's action
+      console.log('[EXCLUSIVE] Executing external action...');
       const result = await action(port);
       return result;
     } finally {
-      // 4. Always attempt to restore the original connection parameters
+      console.log('[EXCLUSIVE] Restoring background serial stream...');
       try {
-        await port.close();
+        // esptool-js might leave the port open or closed depending on state.
+        // We ensure it's closed before we try to re-open for our terminal.
+        await port.close().catch(() => {});
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_e) { /* ignore */ }
 
-      // 5. Wait for OS to release the port handle before reopening
-      // Increased delay to 1000ms for more stability
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Stabilize OS handle
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       try {
-        // Check if port is already open by a different handle or if close is still pending
+        console.log('[EXCLUSIVE] Re-opening port at baud:', originalBaud);
         await port.open({ baudRate: originalBaud });
         this.startReading();
       } catch (e: any) {
-        if (e.message && e.message.includes('already open')) {
-          console.warn('Port still reporting as open, retrying in 1s...');
-          await new Promise(resolve => setTimeout(resolve, 1000));
+        if (e.message && (e.message.includes('already open') || e.message.includes('busy'))) {
+          console.warn('[EXCLUSIVE] Port busy, retrying final restoration in 2s...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
           try {
             await port.open({ baudRate: originalBaud });
             this.startReading();
           } catch (retryErr) {
-             console.error('Final attempt to restore serial connection failed:', retryErr);
+             console.error('[EXCLUSIVE] CRITICAL: Final restoration failed:', retryErr);
+             this.updateState({ isConnected: false, port: null, error: 'Connection lost. Port remains locked by OS.' });
           }
         } else {
-          console.error('Failed to restore serial connection after exclusive action:', e);
+          console.error('[EXCLUSIVE] Restoration error:', e);
+          this.updateState({ isConnected: false, port: null, error: 'Failed to resume serial stream.' });
         }
-        this.updateState({ isConnected: false, port: null, error: 'Failed to restore normal port operations.' });
       }
     }
   }

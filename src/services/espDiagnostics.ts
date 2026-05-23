@@ -21,6 +21,7 @@ class EspDiagnostics {
   public async analyzeChip(
     port: SerialPort,
     baudRate: number,
+    options: { useStub: boolean },
     onProgress: ProgressCallback
   ): Promise<EspChipDetails | null> {
     let transport: Transport | null = null;
@@ -50,6 +51,15 @@ class EspDiagnostics {
       const chipType = await loader.main();
       serialManager.setChipMode('Download');
       onProgress(`Chip type identified: ${chipType}`);
+
+      if (options.useStub) {
+        try {
+          onProgress('Uploading diagnostic stub...');
+          await loader.runStub();
+        } catch (stubErr) {
+          onProgress('Warning: Failed to load stub. Continuing in ROM mode...');
+        }
+      }
 
       const chip = loader.chip;
       if (!chip) {
