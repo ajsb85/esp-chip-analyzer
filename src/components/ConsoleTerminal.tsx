@@ -72,13 +72,13 @@ const terminalHeaderStyles = style({
 const screenStyles = style({
   // Force background: White for Light mode, Black for Dark mode
   backgroundColor: {
-    default: 'white',
-    _dark: 'black'
+    default: 'gray-50',
+    _dark: 'gray-1000'
   },
   // Force text: Black for Light mode, White for Dark mode
   color: {
-    default: 'black',
-    _dark: 'white'
+    default: 'gray-1000',
+    _dark: 'gray-50'
   },
   fontFamily: 'code',
   font: 'body-xs',
