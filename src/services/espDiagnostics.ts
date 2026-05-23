@@ -233,7 +233,9 @@ class EspDiagnostics {
       onProgress('Flashing complete! Verifying MD5...');
 
       onProgress('Restarting device into application mode...');
-      await (loader as any).after(isUsbJtag ? 'usb_reset' : 'hard_reset');
+      // Stay in control and perform a manual hardware reset
+      await (loader as any).after('no_reset_stub');
+      await this.hardReset(port);
 
       return true;
     } catch (err: unknown) {
