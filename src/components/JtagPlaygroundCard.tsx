@@ -31,7 +31,7 @@ export const JtagPlaygroundCard: FC<JtagPlaygroundCardProps> = ({ serialState })
   const handleFlashShowcase = async () => {
     if (!serialState.port) return;
     setFlashing(true);
-    setProgressMsg('Initiating showcase flash...');
+    setProgressMsg('Initiating XIAO ESP32-C5 showcase flash...');
     setProgressPercent(undefined);
 
     try {
@@ -62,7 +62,7 @@ export const JtagPlaygroundCard: FC<JtagPlaygroundCardProps> = ({ serialState })
       });
 
       if (result.success) {
-        setProgressMsg('Showcase firmware flashed! JTAG is now active on the built-in USB port.');
+        setProgressMsg('Firmware flashed! JTAG is active. Unplug/Replug USB to ensure boot mode clears.');
         setProgressPercent(100);
       } else {
         setProgressMsg('Flash failed. Check console for details.');
@@ -90,35 +90,34 @@ export const JtagPlaygroundCard: FC<JtagPlaygroundCardProps> = ({ serialState })
       <div className={style({ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }) as any}>
         <h2 className={style({ font: 'heading-xs', color: 'neutral', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }) as any}>
           <BugIcon styles={iconStyle({ size: 'M' })} />
-          <Text>ESP32-C5 JTAG Playground</Text>
+          <Text>Seeed Studio XIAO ESP32-C5 JTAG Playground</Text>
         </h2>
-        <Badge variant="positive" fillStyle="subtle">Special Build</Badge>
+        <Badge variant="positive" fillStyle="subtle">XIAO V1.1 Build</Badge>
       </div>
 
       <div className={style({ display: 'grid', gridTemplateColumns: { default: '1fr', lg: '1fr 1fr' }, gap: 24 }) as any}>
         <div className={style({ display: 'flex', flexDirection: 'column', gap: 16 }) as any}>
           <div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}>
             <InfoCircleIcon styles={iconStyle({ size: 'S', color: 'informative' })} />
-            <Text styles={style({ font: 'body-sm', fontWeight: 'bold' })}>About the Showcase Firmware</Text>
+            <Text styles={style({ font: 'body-sm', fontWeight: 'bold' })}>Hardware Interactive Showcase</Text>
           </div>
           <Text styles={style({ font: 'body-xs', color: 'neutral-subdued' })}>
-            This firmware is specifically compiled for the **ESP32-C5** to demonstrate JTAG capabilities. 
-            It includes several global variables at fixed addresses that you can inspect and modify in real-time using the **WebOCD JTAG Debugger**.
+            This firmware uses the XIAO's built-in Yellow LED (GPIO 27) and Boot Button (GPIO 28) to help you understand JTAG by providing physical visual feedback. 
           </Text>
           
           <div className={style({ backgroundColor: 'gray-50', padding: 12, borderRadius: 'sm', borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200' }) as any}>
-            <Text styles={style({ font: 'body-2xs', fontWeight: 'bold', marginBottom: 4 })}>Target Variables:</Text>
+            <Text styles={style({ font: 'body-2xs', fontWeight: 'bold', marginBottom: 4 })}>Memory Mapped Variables:</Text>
             <ul className={style({ margin: 0, paddingLeft: 16, font: 'body-2xs', color: 'neutral-subdued' }) as any}>
-              <li><code>jtag_counter</code> (0x4080D6AC): Increments every second.</li>
-              <li><code>jtag_control</code> (0x4080D6A8): Change to <code>1</code> for delay, <code>99</code> for restart.</li>
-              <li><code>jtag_message</code> (0x4080ACA8): A string you can overwrite.</li>
+              <li><code>jtag_blink_rate</code> (0x4080a958): Delay in ms. Default: 1000.</li>
+              <li><code>jtag_override_led</code> (0x4080a954): -1=Auto, 0=OFF, 1=ON.</li>
+              <li><code>button_press_count</code> (0x4080d758): Total boot button presses.</li>
             </ul>
           </div>
 
           {serialState.isConnected ? (
             <Button variant="accent" onPress={handleFlashShowcase} isDisabled={flashing}>
               <DataUploadIcon />
-              <Text>{flashing ? 'Flashing Showcase...' : 'Flash JTAG Showcase Firmware'}</Text>
+              <Text>{flashing ? 'Flashing XIAO Showcase...' : 'Flash XIAO Showcase Firmware'}</Text>
             </Button>
           ) : (
             <div className={style({ padding: 12, backgroundColor: 'orange-100', borderRadius: 'sm', textAlign: 'center' }) as any}>
@@ -137,31 +136,31 @@ export const JtagPlaygroundCard: FC<JtagPlaygroundCardProps> = ({ serialState })
         <div className={style({ display: 'flex', flexDirection: 'column', gap: 16 }) as any}>
           <div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}>
             <SearchIcon styles={iconStyle({ size: 'S', color: 'notice' })} />
-            <Text styles={style({ font: 'body-sm', fontWeight: 'bold' })}>Experiments to Try</Text>
+            <Text styles={style({ font: 'body-sm', fontWeight: 'bold' })}>Interactive Experiments</Text>
           </div>
           
           <div className={style({ display: 'flex', flexDirection: 'column', gap: 12 }) as any}>
             <div className={style({ padding: 12, borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200', borderRadius: 'sm' }) as any}>
-              <Text styles={style({ font: 'body-xs', fontWeight: 'bold' })}>1. Live Variable Watch</Text>
+              <Text styles={style({ font: 'body-xs', fontWeight: 'bold' })}>1. CPU Bypass / Force State</Text>
               <Text styles={style({ font: 'body-xs', color: 'neutral-subdued' })}>
-                Go to the **WebOCD JTAG** tab, connect to the JTAG interface, and use the console:
-                <code>p jtag_counter</code>
+                Override the logic loop and force the LED solid ON/OFF without changing the code:
+                <code>set variable jtag_override_led = 1</code>
               </Text>
             </div>
 
             <div className={style({ padding: 12, borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200', borderRadius: 'sm' }) as any}>
-              <Text styles={style({ font: 'body-xs', fontWeight: 'bold' })}>2. Remote Control</Text>
+              <Text styles={style({ font: 'body-xs', fontWeight: 'bold' })}>2. Live State Injection</Text>
               <Text styles={style({ font: 'body-xs', color: 'neutral-subdued' })}>
-                Modify device behavior without changing code:
-                <code>set variable jtag_control = 99</code>
+                Make the LED blink crazy fast (100ms) by writing directly to RAM:
+                <code>set variable jtag_blink_rate = 100</code>
               </Text>
             </div>
 
             <div className={style({ padding: 12, borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200', borderRadius: 'sm' }) as any}>
-              <Text styles={style({ font: 'body-xs', fontWeight: 'bold' })}>3. Memory Manipulation</Text>
+              <Text styles={style({ font: 'body-xs', fontWeight: 'bold' })}>3. Hardware Watchpoints (Halt CPU)</Text>
               <Text styles={style({ font: 'body-xs', color: 'neutral-subdued' })}>
-                Overwrite the status message:
-                <code>set {`{char[32]}`}jtag_message = "Hacked via JTAG!"</code>
+                Set a watchpoint on the counter. Then press the 'B' button on the board. The CPU will freeze instantly!
+                <code>watch button_press_count</code>
               </Text>
             </div>
           </div>

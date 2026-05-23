@@ -58,27 +58,30 @@ export const JtagDebuggerCard: FC = () => {
       if (espJtag.isConnected()) {
         espJtag.setReset(true).then(() => espJtag.setReset(false));
       }
-    } else if (c === 'p jtag_counter') {
-      response = `$1 = ${Math.floor(Date.now() / 1000) % 1000}`;
-    } else if (c === 'p jtag_message') {
-      response = '$2 = "JTAG is watching you"';
+    } else if (c === 'p jtag_blink_rate') {
+      response = '$1 = 1000';
+    } else if (c === 'p button_press_count') {
+      response = `$2 = ${Math.floor(Date.now() / 5000) % 5}`;
     } else if (c === 'continue' || c === 'c') {
       response = 'Continuing.';
     } else if (c === 'info registers' || c === 'i r') {
       response = registers.map(r => `${r.name.padEnd(8)} ${r.value}`).join('\n');
     } else if (c === 'backtrace' || c === 'bt') {
-      response = '#0  0x42004560 in app_main () at main/jtag-showcase-fw.c:20\n#1  0x40000400 in start_cpu0 ()';
+      response = '#0  0x42004560 in app_main () at main/jtag-showcase-fw.c:45\n#1  0x40000400 in start_cpu0 ()';
     } else if (c === 'info locals') {
-      response = 'jtag_counter = 42\njtag_control = 0\nstatus_flags = 0x00000001\ntemp_buffer = 0x4080AF10';
+      response = 'btn_state = 1\nlast_btn_state = 1\nled_state = 0\ndelay = 1000';
     } else if (c === 'maintenance flush register-cache') {
       response = 'Register cache flushed.';
     } else if (c === 'x/16xw $sp') {
       response = '0x4080AF00: 0x00000000 0x40000400 0x42004560 0x00000000\n0x4080AF10: 0x00000000 0x00000000 0x00000000 0x00000000\n0x4080AF20: 0x00000000 0x00000000 0x00000000 0x00000000\n0x4080AF30: 0x00000000 0x00000000 0x00000000 0x00000000';
-    } else if (c.startsWith('set variable jtag_control')) {
+    } else if (c.startsWith('set variable jtag_override_led')) {
       const val = c.split('=').pop()?.trim();
-      response = `jtag_control set to ${val}`;
-    } else if (c.startsWith('set {char[')) {
-      response = '';
+      response = `jtag_override_led set to ${val}`;
+    } else if (c.startsWith('set variable jtag_blink_rate')) {
+      const val = c.split('=').pop()?.trim();
+      response = `jtag_blink_rate set to ${val}`;
+    } else if (c.startsWith('watch button_press_count')) {
+      response = 'Hardware watchpoint 1: button_press_count';
     } else if (c.startsWith('x/')) {
       response = `${c.split(' ').pop()}: 0x00000000 0x11223344 0x55667788 0x99AABBCC`;
     } else {
@@ -217,14 +220,17 @@ export const JtagDebuggerCard: FC = () => {
               <Text styles={style({ font: 'body-sm', fontWeight: 'bold' })}>Quick Snippets</Text>
               
               <div className={style({ display: 'flex', flexDirection: 'column', gap: 8 }) as any}>
-                <Text styles={style({ font: 'body-2xs', color: 'neutral-subdued', textTransform: 'uppercase', fontWeight: 'bold' })}>Showcase Basic</Text>
-                <Button variant="secondary" onPress={() => handleGdbCommand('p jtag_counter')}>Read Counter</Button>
-                <Button variant="secondary" onPress={() => handleGdbCommand('set variable jtag_control = 99')}>Remote Restart</Button>
-                <Button variant="secondary" onPress={() => handleGdbCommand('set {char[32]}jtag_message = "Hello JTAG!"')}>Set Message</Button>
+                <Text styles={style({ font: 'body-2xs', color: 'neutral-subdued', textTransform: 'uppercase', fontWeight: 'bold' })}>Interactive Hardware</Text>
+                <Button variant="secondary" onPress={() => handleGdbCommand('set variable jtag_override_led = 1')}>Force LED ON</Button>
+                <Button variant="secondary" onPress={() => handleGdbCommand('set variable jtag_override_led = 0')}>Force LED OFF</Button>
+                <Button variant="secondary" onPress={() => handleGdbCommand('set variable jtag_override_led = -1')}>Resume Auto Blink</Button>
+                <Button variant="secondary" onPress={() => handleGdbCommand('set variable jtag_blink_rate = 100')}>Fast Blink</Button>
+                <Button variant="secondary" onPress={() => handleGdbCommand('watch button_press_count')}>Watch Boot Button</Button>
               </div>
 
               <div className={style({ display: 'flex', flexDirection: 'column', gap: 8 }) as any}>
                 <Text styles={style({ font: 'body-2xs', color: 'neutral-subdued', textTransform: 'uppercase', fontWeight: 'bold' })}>Advanced Diagnostics</Text>
+                <Button variant="secondary" onPress={() => handleGdbCommand('p button_press_count')}>Read Press Count</Button>
                 <Button variant="secondary" onPress={() => handleGdbCommand('x/16xw $sp')}>Dump Stack (SP)</Button>
                 <Button variant="secondary" onPress={() => handleGdbCommand('info locals')}>Inspect Locals</Button>
                 <Button variant="secondary" onPress={() => handleGdbCommand('maintenance flush register-cache')}>Flush Reg Cache</Button>
