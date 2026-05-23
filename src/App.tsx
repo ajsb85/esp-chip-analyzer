@@ -8,6 +8,7 @@ import { SignalMonitor } from './components/SignalMonitor';
 import { UsbConverterCard } from './components/UsbConverterCard';
 import { EspChipCard } from './components/EspChipCard';
 import { AutoProgrammerCard } from './components/AutoProgrammerCard';
+import { FirmwareFlasherCard } from './components/FirmwareFlasherCard';
 import { ConsoleTerminal } from './components/ConsoleTerminal';
 import { Provider } from '@react-spectrum/s2/Provider';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
@@ -15,6 +16,7 @@ import { Tabs, TabList, Tab, TabPanel } from '@react-spectrum/s2/Tabs';
 import CodeIcon from '@react-spectrum/s2/icons/Code';
 import DataSettingsIcon from '@react-spectrum/s2/icons/DataSettings';
 import DataIcon from '@react-spectrum/s2/icons/Data';
+import DataUploadIcon from '@react-spectrum/s2/icons/DataUpload';
 
 const appContainerStyles = style({
   maxWidth: 1200,
@@ -42,7 +44,7 @@ const leftColumnStyles = style({
   gap: 24,
   width: {
     default: '100%',
-    lg: 350, // 350px width, perfect for left diagnostics column
+    lg: 350, 
   },
   flexShrink: 0,
 });
@@ -54,8 +56,6 @@ const rightColumnStyles = style({
   flexGrow: 1,
   width: '100%',
 });
-
-// Tabs are styled and structured natively by Spectrum S2 components
 
 function App() {
   const [serialState, setSerialState] = useState<SerialConnectionState>(serialManager.getState());
@@ -71,7 +71,6 @@ function App() {
     return 'dark';
   });
 
-  // Apply theme class and data attributes to documentElement
   useEffect(() => {
     if (theme === 'light') {
       document.documentElement.classList.add('light-theme');
@@ -83,7 +82,6 @@ function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // System theme preference listener
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -96,7 +94,6 @@ function App() {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  // Subscribe to serial manager updates
   useEffect(() => {
     const unsubscribe = serialManager.subscribe((state) => {
       setSerialState(state);
@@ -104,14 +101,11 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // Monitor network online status
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -143,16 +137,11 @@ function App() {
 
   const handleSendData = async (data: string) => {
     const port = serialManager.getPort();
-    if (!port || !port.writable) {
-      console.warn('Cannot send data: Port is closed or not writable.');
-      return;
-    }
-
+    if (!port || !port.writable) return;
     try {
       const writer = port.writable.getWriter();
       const encoder = new TextEncoder();
-      const encoded = encoder.encode(data);
-      await writer.write(encoded);
+      await writer.write(encoder.encode(data));
       writer.releaseLock();
     } catch (err) {
       console.error('[SERIAL] Failed to write data:', err);
@@ -170,7 +159,6 @@ function App() {
       background="base"
       styles={appContainerStyles}
     >
-      {/* Top Header Card */}
       <DashboardHeader 
         serialState={serialState} 
         isOnline={isOnline}
@@ -179,31 +167,28 @@ function App() {
         onForgetPort={handleForgetPort}
       />
 
-      {/* Primary Dashboard Grid */}
       <main className={gridStyles}>
-        {/* Left Side: Connection & Hardware Controls */}
         <section className={leftColumnStyles}>
           <ConnectionPanel 
             serialState={serialState}
             onConnect={handleConnect}
             onDisconnect={handleDisconnect}
           />
-          
           <UsbConverterCard 
             serialState={serialState}
           />
         </section>
 
-        {/* Right Side: Tabbed Workspace */}
         <section className={rightColumnStyles}>
           <Tabs 
             aria-label="Chip Analyzer Workspace"
             selectedKey={activeTab} 
-            onSelectionChange={(key) => setActiveTab(key as 'terminal' | 'diagnostics' | 'signals' | 'flasher')}
+            onSelectionChange={(key) => setActiveTab(key as any)}
             styles={style({ width: '100%' })}
           >
             <TabList aria-label="Chip Analyzer Modes">
               <Tab id="terminal"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><CodeIcon /> Serial Terminal</div></Tab>
+              <Tab id="flasher"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><DataUploadIcon /> Firmware Flasher</div></Tab>
               <Tab id="diagnostics"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><DataSettingsIcon /> Chip Diagnostics</div></Tab>
               <Tab id="signals"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><DataIcon /> RS232 Handshake</div></Tab>
             </TabList>
@@ -215,6 +200,9 @@ function App() {
                 onSendData={handleSendData}
                 onClearLogs={handleClearLogs}
               />
+            </TabPanel>
+            <TabPanel id="flasher">
+              <FirmwareFlasherCard serialState={serialState} />
             </TabPanel>
             <TabPanel id="diagnostics">
               <div className={style({ display: 'flex', flexDirection: 'column', gap: 24 })}>
@@ -233,11 +221,9 @@ function App() {
         </section>
       </main>
 
-      {/* Corporate Anchored Footer */}
       <DashboardFooter isOnline={isOnline} />
     </Provider>
   );
 }
 
 export default App;
-
