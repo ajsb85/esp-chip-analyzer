@@ -28,13 +28,8 @@ class EspDiagnostics {
     try {
       onProgress('Initializing WebSerial transport layer...');
       
-      // Ensure port is open if it isn't already
-      try {
-        await port.open({ baudRate });
-      } catch (e: any) {
-        if (!e.message.includes('already open')) throw e;
-      }
-
+      // esptool-js handles port opening internally via transport.connect()
+      // We explicitly DO NOT open it here to avoid "already open" errors
       transport = new Transport(port, true);
       
       const termMock = {
@@ -154,7 +149,7 @@ class EspDiagnostics {
       const info = port.getInfo();
       const isUsbJtag = info.usbVendorId === 0x303A && info.usbProductId === 0x1001;
       
-      // Ensure port is open for signal toggling
+      // For manual signal toggling, we DO need to ensure the port is open.
       try {
         await port.open({ baudRate: 115200 });
       } catch (e: any) {
@@ -185,9 +180,7 @@ class EspDiagnostics {
       if (transport) {
         try {
           await transport.disconnect();
-        } catch (_e) {
-          // Ignore "already closed" or signal errors in finally
-        }
+        } catch (_e) { /* ignore */ }
       }
     }
   }
@@ -207,13 +200,7 @@ class EspDiagnostics {
       const info = port.getInfo();
       const isUsbJtag = info.usbVendorId === 0x303A && info.usbProductId === 0x1001;
 
-      // Ensure port is open
-      try {
-        await port.open({ baudRate });
-      } catch (e: any) {
-        if (!e.message.includes('already open')) throw e;
-      }
-
+      // esptool-js handles port opening internally via transport.connect()
       transport = new Transport(port, true);
       
       const termMock = {
@@ -283,8 +270,6 @@ class EspDiagnostics {
     } finally {
       if (transport) {
         try {
-          await transport.setDTR(false);
-          await transport.setRTS(false);
           await transport.disconnect();
         } catch (_e) { /* ignore */ }
       }
