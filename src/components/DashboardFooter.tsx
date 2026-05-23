@@ -5,6 +5,9 @@ import { Badge } from '@react-spectrum/s2/Badge';
 import { StatusLight } from '@react-spectrum/s2/StatusLight';
 import { Button } from '@react-spectrum/s2/Button';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
+import DataUploadIcon from '@react-spectrum/s2/icons/DataUpload';
+import PluginIcon from '@react-spectrum/s2/icons/Plugin';
+import RefreshIcon from '@react-spectrum/s2/icons/Refresh';
 
 interface DashboardFooterProps {
   isOnline: boolean;
@@ -70,19 +73,18 @@ export const DashboardFooter: FC<DashboardFooterProps> = ({ isOnline }) => {
         <div className={style({ display: 'flex', flexDirection: 'column', gap: 16 })}>
           <div className={style({ display: 'flex', alignItems: 'center' })}>
             {/* Bushers Electronics Corporate Logo Emblem */}
-            <div className={style({ 
-              display: 'flex', 
-              alignItems: 'center',
-              boxShadow: 'elevated',
-              borderRadius: 'lg',
-              overflow: 'hidden',
-              backgroundColor: 'yellow-400',
-              paddingX: 8,
-              paddingY: 4,
-              borderStyle: 'solid',
-              borderWidth: 1,
-              borderColor: 'yellow-500',
-            })}>
+            <div 
+              className={style({ 
+                display: 'flex', 
+                alignItems: 'center',
+                boxShadow: 'elevated',
+                borderRadius: 'lg',
+                overflow: 'hidden',
+                paddingX: 8,
+                paddingY: 4,
+              })}
+              style={{ backgroundColor: '#f5c700', border: '1px solid #d9b000' }}
+            >
               <svg width="90" height="34" viewBox="0 0 350 131" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <g clipPath="url(#clip0_288_14_footer_s2)">
                   <rect width="350" height="131" rx="16" fill="#FAD900"/>
@@ -161,12 +163,12 @@ export const DashboardFooter: FC<DashboardFooterProps> = ({ isOnline }) => {
           })}>
             {/* Caching Status */}
             <Badge variant="informative" fillStyle="subtle">
-              📦 PWA Status: Fully Offline Cached (v1.0.4)
+              <DataUploadIcon /> PWA Status: Fully Offline Cached (v1.0.4)
             </Badge>
 
             {/* Execution Env */}
             <Badge variant="notice" fillStyle="subtle">
-              ⚡ Client: 100% Sandboxed Web Serial
+              <PluginIcon /> Client: 100% Sandboxed Web Serial
             </Badge>
 
             {/* Network Online Status */}
@@ -201,7 +203,7 @@ export const DashboardFooter: FC<DashboardFooterProps> = ({ isOnline }) => {
               variant="secondary"
               styles={style({ marginTop: 8, width: 'full' })}
             >
-              🔄 Force Update PWA
+              <RefreshIcon /> Force Update PWA
             </Button>
           </div>
         </div>

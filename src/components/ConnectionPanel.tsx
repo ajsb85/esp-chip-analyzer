@@ -94,7 +94,7 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
   return (
     <div className={cardStyles as any}>
       <h2 className={titleStyles as any}>
-        ⚡ Port Connection
+        <PluginIcon /> Port Connection
       </h2>
 
       {/* Semantic Connection Errors */}
@@ -105,7 +105,7 @@ export const ConnectionPanel: FC<ConnectionPanelProps> = ({
             {serialState.error}
             {serialState.errorClass === 'Busy' && (
               <span className={style({ display: 'block', marginTop: 4, font: 'body-xs' }) as any}>
-                💡 Tip: Make sure the device is not open in Arduino IDE, Espruino, or another browser tab.
+                <InfoCircleIcon /> Tip: Make sure the device is not open in Arduino IDE, Espruino, or another browser tab.
               </span>
             )}
           </Content>

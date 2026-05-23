@@ -149,7 +149,7 @@ export const SignalMonitor: FC<SignalMonitorProps> = ({ serialState }) => {
   return (
     <div className={cardStyles as any}>
       <h2 className={titleStyles as any}>
-        🔌 RS232 DB9 Signals
+        <DataIcon /> RS232 DB9 Signals
       </h2>
 
       {!serialState.isConnected ? (

@@ -505,7 +505,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
     return (
       <div className={cardStyles as any}>
         <h2 className={titleStyles as any}>
-          🔌 USB Bridge Diagnostics
+          <PluginIcon /> USB Bridge Diagnostics
         </h2>
         <div className={style({
           textAlign: 'center',
@@ -536,7 +536,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
       {/* Header Info */}
       <div className={style({ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }) as any}>
         <h2 className={titleStyles as any}>
-          🔌 USB Bridge Analyzer
+          <PluginIcon /> USB Bridge Analyzer
         </h2>
         <Badge variant={getChipBadgeVariant()} fillStyle="subtle">
           {details.type} Chip
@@ -549,19 +549,19 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
           onClick={() => setCardTab('diagnostics')}
           className={`${pillButtonStyles} ${cardTab === 'diagnostics' ? activePillButtonStyles : ''}`}
         >
-          🔬 Diagnostics
+          <DataSettingsIcon /> Diagnostics
         </button>
         <button 
           onClick={() => setCardTab('toolchain')}
           className={`${pillButtonStyles} ${cardTab === 'toolchain' ? activePillButtonStyles : ''}`}
         >
-          ⚙️ Toolchain
+          <ToolsIcon /> Toolchain
         </button>
         <button 
           onClick={() => setCardTab('reference')}
           className={`${pillButtonStyles} ${cardTab === 'reference' ? activePillButtonStyles : ''}`}
         >
-          📋 Models
+          <FileTextIcon /> Models
         </button>
       </div>
 
@@ -673,7 +673,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                 }) as any}>
                   <div className={style({ display: 'flex', flexDirection: 'column', gap: 4 }) as any}>
                     <span className={style({ font: 'heading-2xs', fontWeight: 'bold', color: 'neutral' }) as any}>
-                      🛠️ WCH CH34x EEPROM Configurator
+                      <PluginGearIcon /> WCH CH34x EEPROM Configurator
                     </span>
                     <span className={style({ font: 'body-xs', color: 'neutral-subdued' }) as any}>
                       Query and write hardware descriptors (VID, PID, Serial, Product name, Manufacturer) using 300-baud command structures.
@@ -910,7 +910,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                           gap: 8
                         }) as any}>
                           <span className={style({ font: 'body-2xs', fontWeight: 'bold', color: 'neutral', display: 'block' }) as any}>
-                            💾 Raw EEPROM Register Hex Dump ({ch340bConfig.chipType})
+                            <SaveFloppyIcon /> Raw EEPROM Register Hex Dump ({ch340bConfig.chipType})
                           </span>
                           <pre className={codeBoxStyles as any}>
                             {(() => {
@@ -953,7 +953,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                       </div>
                       
                       <span className={style({ font: 'body-2xs', color: 'neutral-subdued', fontStyle: 'italic', marginTop: 4 }) as any}>
-                        ⚠️ Note: Register writing requires physical {ch340bConfig.chipType} silicon containing modifiable configuration EEPROM memory.
+                        <AlertTriangleIcon /> Note: Register writing requires physical {ch340bConfig.chipType} silicon containing modifiable configuration EEPROM memory.
                       </span>
                     </div>
                   )}
@@ -967,7 +967,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
             <div className={style({ display: 'flex', flexDirection: 'column', gap: 16 }) as any}>
               <div className={style({ display: 'flex', flexDirection: 'column', gap: 4 }) as any}>
                 <span className={style({ font: 'heading-2xs', fontWeight: 'bold', color: 'neutral' }) as any}>
-                  ⚙️ Toolchain Parameters Configuration
+                  <ToolsIcon /> Toolchain Parameters Configuration
                 </span>
                 <span className={style({ font: 'body-xs', color: 'neutral-subdued' }) as any}>
                   Generate precise target build environments and script setups for your active connection parameters.
@@ -1019,7 +1019,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
                   variant={copied ? "accent" : "secondary"}
                   styles={style({ width: 'full', marginTop: 4 }) as any}
                 >
-                  {copied ? '✓ Copied to Clipboard!' : '📋 Copy Config Snippet'}
+                  {copied ? <><CheckIcon /> Copied to Clipboard!</> : '<FileTextIcon /> Copy Config Snippet'}
                 </Button>
               </div>
             </div>
@@ -1030,7 +1030,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
             <div className={style({ display: 'flex', flexDirection: 'column', gap: 16 }) as any}>
               <div className={style({ display: 'flex', flexDirection: 'column', gap: 4 }) as any}>
                 <span className={style({ font: 'heading-2xs', fontWeight: 'bold', color: 'neutral' }) as any}>
-                  📋 WCH CH340/CH341 Silicon Database
+                  <FileTextIcon /> WCH CH340/CH341 Silicon Database
                 </span>
                 <span className={style({ font: 'body-xs', color: 'neutral-subdued' }) as any}>
                   Select a chip variant to view clock architectures, modem configurations, and pin supply wiring layout guidelines.
@@ -1079,7 +1079,7 @@ arduino-cli monitor -p ${port} -c baudrate=${baud}`;
 
                 <div className={style({ borderTopStyle: 'solid', borderTopWidth: 1, borderTopColor: 'gray-200', paddingTop: 8 }) as any}>
                   <span className={style({ font: 'body-xs', fontWeight: 'bold', color: 'neutral', display: 'block', marginBottom: 8 }) as any}>
-                    ⚡ Pinout Power Supply Configuration:
+                    <DataUploadIcon /> Pinout Power Supply Configuration:
                   </span>
                   
                   <div className={style({ display: 'flex', gap: 8, marginBottom: 8 }) as any}>

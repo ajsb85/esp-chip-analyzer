@@ -214,7 +214,7 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
     <div className={cardStyles as any}>
       <div className={style({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }) as any}>
         <h2 className={titleStyles as any}>
-          📺 Bidirectional Serial Console
+          <CodeIcon /> Bidirectional Serial Console
         </h2>
 
         {/* Toolbar controls */}
@@ -277,7 +277,7 @@ export const ConsoleTerminal: FC<ConsoleTerminalProps> = ({
         <div className={screenStyles as any} ref={screenRef}>
           {filteredLines.length === 0 ? (
             <div className={style({ margin: 'auto', color: 'neutral-subdued', font: 'body-sm', textAlign: 'center' }) as any}>
-              📟 Console Idle. Ready to receive serial stream...
+              <DataIcon /> Console Idle. Ready to receive serial stream...
             </div>
           ) : (
             filteredLines.map((line, idx) => (

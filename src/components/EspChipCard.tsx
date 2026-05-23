@@ -100,7 +100,7 @@ export const EspChipCard: FC<EspChipCardProps> = ({ serialState }) => {
     return (
       <div className={cardStyles as any}>
         <h2 className={titleStyles as any}>
-          🔬 Espressif Chip Diagnostics
+          <DataSettingsIcon /> Espressif Chip Diagnostics
         </h2>
         <div className={style({
           textAlign: 'center',
@@ -118,7 +118,7 @@ export const EspChipCard: FC<EspChipCardProps> = ({ serialState }) => {
     <div className={cardStyles as any}>
       <div className={style({ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }) as any}>
         <h2 className={titleStyles as any}>
-          🔬 Espressif Chip Diagnostics
+          <DataSettingsIcon /> Espressif Chip Diagnostics
         </h2>
         {chipDetails && (
           <Button 
@@ -146,7 +146,7 @@ export const EspChipCard: FC<EspChipCardProps> = ({ serialState }) => {
             Run Chip eFuse Scan
           </Button>
           <p className={style({ font: 'body-xs', color: 'neutral-subdued', margin: 0 }) as any}>
-            ⚠️ This will temporarily halt any firmware currently executing on the ESP.
+            <AlertTriangleIcon /> This will temporarily halt any firmware currently executing on the ESP.
           </p>
         </div>
       )}
@@ -275,7 +275,7 @@ export const EspChipCard: FC<EspChipCardProps> = ({ serialState }) => {
               onPress={handleHardReset}
               styles={style({ flex: 1 }) as any}
             >
-              🔄 Hard Reset Chip
+              <RefreshIcon /> Hard Reset Chip
             </Button>
             <Button 
               variant="accent" 

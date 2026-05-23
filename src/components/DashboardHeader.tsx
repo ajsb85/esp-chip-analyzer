@@ -6,6 +6,8 @@ import { Button } from '@react-spectrum/s2/Button';
 import { Switch } from '@react-spectrum/s2/Switch';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
 import DeleteIcon from '@react-spectrum/s2/icons/Delete';
+import CloudIcon from '@react-spectrum/s2/icons/Cloud';
+import CloudStateDisconnectedIcon from '@react-spectrum/s2/icons/CloudStateDisconnected';
 
 interface DashboardHeaderProps {
   serialState: SerialConnectionState;
@@ -75,18 +77,17 @@ export const DashboardHeader: FC<DashboardHeaderProps> = ({
     <header className={headerStyles}>
       {/* Title Segment & Application Brand Icon */}
       <div className={style({ display: 'flex', alignItems: 'center', gap: 16 })}>
-        <div className={style({
-          display: 'flex', 
-          alignItems: 'center',
-          boxShadow: 'elevated',
-          borderRadius: 'lg',
-          overflow: 'hidden',
-          backgroundColor: 'yellow-400',
-          padding: 4,
-          borderStyle: 'solid',
-          borderWidth: 1,
-          borderColor: 'yellow-500',
-        })}>
+        <div 
+          className={style({
+            display: 'flex', 
+            alignItems: 'center',
+            boxShadow: 'elevated',
+            borderRadius: 'lg',
+            overflow: 'hidden',
+            padding: 4,
+          })}
+          style={{ backgroundColor: '#f5c700', border: '1px solid #d9b000' }}
+        >
           <img 
             src="favicon.svg" 
             alt="ESP32 Chip Analyzer App Icon" 
@@ -125,7 +126,7 @@ export const DashboardHeader: FC<DashboardHeaderProps> = ({
 
         {/* Network connection badge */}
         <Badge variant={isOnline ? 'positive' : 'notice'} fillStyle="outline">
-          {isOnline ? '🌐 Online PWA' : '📡 Offline Diagnostic Active'}
+          {isOnline ? <><CloudIcon /> Online PWA</> : <><CloudStateDisconnectedIcon /> Offline Diagnostic Active</>}
         </Badge>
 
         {/* Connection status light */}
