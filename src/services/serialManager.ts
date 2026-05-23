@@ -68,17 +68,7 @@ class SerialManager {
   public async requestPort(): Promise<SerialPort | null> {
     try {
       this.updateState({ error: null, errorClass: null });
-      // Apply filters for common USB-to-UART bridges to avoid noisy console warnings about Bluetooth blocklists
-      const filters = [
-        { usbVendorId: 0x10C4 }, // Silicon Labs (CP210x)
-        { usbVendorId: 0x0403 }, // FTDI (FT232R)
-        { usbVendorId: 0x1A86 }, // WCH (CH340 / CH341)
-        { usbVendorId: 0x067B }, // Prolific (PL2303)
-        { usbVendorId: 0x303A }, // Espressif Systems (ESP32 CDC/JTAG)
-        { usbVendorId: 0x2341 }, // Arduino
-        { usbVendorId: 0x0483 }  // STM32 Virtual COM
-      ];
-      const port = await navigator.serial.requestPort({ filters });
+      const port = await navigator.serial.requestPort();
       return port;
     } catch (err: any) {
       this.handleError(err);

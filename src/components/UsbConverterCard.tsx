@@ -341,13 +341,9 @@ export const UsbConverterCard: FC<UsbConverterCardProps> = ({ serialState }) => 
   }, [fetchDetails]);
 
   const handleRequestWebUsb = async () => {
-    if (!serialState.port) return;
-    const info = serialState.port.getInfo();
-    if (info.usbVendorId && info.usbProductId) {
-      const granted = await usbAnalyzer.requestUsbAccess(info.usbVendorId, info.usbProductId);
-      if (granted) {
-        await fetchDetails();
-      }
+    const granted = await usbAnalyzer.requestUsbAccess();
+    if (granted) {
+      await fetchDetails();
     }
   };
 

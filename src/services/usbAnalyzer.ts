@@ -25,14 +25,14 @@ class UsbAnalyzer {
    * Prompts the user to authorize the USB device via WebUSB.
    * Targets Silicon Labs default Vendor ID 0x10C4.
    */
-  public async requestUsbAccess(vid: number, pid: number): Promise<USBDevice | null> {
+  public async requestUsbAccess(): Promise<USBDevice | null> {
     try {
       if (!navigator.usb) {
         console.warn('WebUSB API is not supported in this browser.');
         return null;
       }
       const device = await navigator.usb.requestDevice({
-        filters: [{ vendorId: vid, productId: pid }]
+        filters: []
       });
       return device;
     } catch (err) {
