@@ -59,10 +59,12 @@ const rightColumnStyles = style({
   width: '100%',
 });
 
+type AppTab = 'terminal' | 'diagnostics' | 'signals' | 'flasher' | 'forensic';
+
 function App() {
   const [serialState, setSerialState] = useState<SerialConnectionState>(serialManager.getState());
   const [receivedData, setReceivedData] = useState<Uint8Array[]>([]);
-  const [activeTab, setActiveTab] = useState<'terminal' | 'diagnostics' | 'signals' | 'flasher'>('terminal');
+  const [activeTab, setActiveTab] = useState<AppTab>('terminal');
   const [isOnline, setIsOnline] = useState<boolean>(typeof window !== 'undefined' ? window.navigator.onLine : true);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('theme');
@@ -228,8 +230,8 @@ function App() {
       </main>
 
       <DashboardFooter isOnline={isOnline} />
-      </Provider>
-      );
-      }
+    </Provider>
+  );
+}
 
-      export default App;
+export default App;
