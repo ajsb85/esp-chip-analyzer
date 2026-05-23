@@ -5,8 +5,22 @@ import macros from 'unplugin-parcel-macros'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    macros.vite(),
+    macros.vite(), // Must be first!
     react()
   ],
   base: '/esp-chip-analyzer/',
+  build: {
+    target: ['es2022'],
+    cssMinify: 'lightningcss',
+    rollupOptions: {
+      output: {
+        // Bundle S2 and macro CSS to prevent duplicate rules across chunks
+        manualChunks(id) {
+          if (/macro-(.*)\.css$/.test(id) || /@react-spectrum\/s2\/.*\.css$/.test(id)) {
+            return 's2-styles';
+          }
+        }
+      }
+    }
+  }
 })

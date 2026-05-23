@@ -6,19 +6,24 @@
   --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+@layer reset, _;
 
-body {
-  font-family: var(--font-sans);
-  min-height: 100vh;
-  margin: 0;
-  padding: 0;
-  line-height: 1.5;
-  transition: background-color 0.2s ease, color 0.2s ease;
+@layer reset {
+  * {
+    box-sizing: border-box;
+  }
+  
+  body, h1, h2, h3, h4, p, ul, ol {
+    margin: 0;
+    padding: 0;
+  }
+  
+  body {
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    line-height: 1.5;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
 }
 
 /* Custom system scrollbars for code elements & scrolling viewports */
