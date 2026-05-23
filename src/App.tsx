@@ -9,6 +9,7 @@ import { UsbConverterCard } from './components/UsbConverterCard';
 import { EspChipCard } from './components/EspChipCard';
 import { AutoProgrammerCard } from './components/AutoProgrammerCard';
 import { FirmwareFlasherCard } from './components/FirmwareFlasherCard';
+import { FirmwareForensicCard } from './components/FirmwareForensicCard';
 import { ConsoleTerminal } from './components/ConsoleTerminal';
 import { Provider } from '@react-spectrum/s2/Provider';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
@@ -203,6 +204,9 @@ function App() {
             </TabPanel>
             <TabPanel id="flasher">
               <FirmwareFlasherCard serialState={serialState} />
+            </TabPanel>
+            <TabPanel id="forensic">
+              <FirmwareForensicCard />
             </TabPanel>
             <TabPanel id="diagnostics">
               <div className={style({ display: 'flex', flexDirection: 'column', gap: 24 })}>
