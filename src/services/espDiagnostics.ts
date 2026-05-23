@@ -27,6 +27,14 @@ class EspDiagnostics {
     let transport: Transport | null = null;
     try {
       onProgress('Initializing WebSerial transport layer...');
+      
+      // Ensure port is open if it isn't already
+      try {
+        await port.open({ baudRate });
+      } catch (e: any) {
+        if (!e.message.includes('already open')) throw e;
+      }
+
       transport = new Transport(port, true);
       
       const termMock = {
@@ -130,8 +138,8 @@ class EspDiagnostics {
         try {
           await transport.setDTR(false);
           await transport.setRTS(false);
+          // Only disconnect/close if the port is actually open
           await transport.disconnect();
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (_e) { /* ignore */ }
       }
     }
@@ -145,6 +153,13 @@ class EspDiagnostics {
       const info = port.getInfo();
       const isUsbJtag = info.usbVendorId === 0x303A && info.usbProductId === 0x1001;
       
+      // Ensure port is open for signal toggling
+      try {
+        await port.open({ baudRate: 115200 });
+      } catch (e: any) {
+        if (!e.message.includes('already open')) throw e;
+      }
+
       const transport = new Transport(port, true);
       
       try {
@@ -186,6 +201,13 @@ class EspDiagnostics {
     try {
       const info = port.getInfo();
       const isUsbJtag = info.usbVendorId === 0x303A && info.usbProductId === 0x1001;
+
+      // Ensure port is open
+      try {
+        await port.open({ baudRate });
+      } catch (e: any) {
+        if (!e.message.includes('already open')) throw e;
+      }
 
       transport = new Transport(port, true);
       
@@ -259,7 +281,6 @@ class EspDiagnostics {
           await transport.setDTR(false);
           await transport.setRTS(false);
           await transport.disconnect();
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (_e) { /* ignore */ }
       }
     }
