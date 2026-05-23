@@ -118,10 +118,11 @@ export class EspJtag {
   }
 
   public async clock(tms: boolean, tdi: boolean, cap: boolean): Promise<void> {
-    // CMD_CLK: bit 3=0, bit 2=cap, bit 1=tms, bit 0=tdi
-    this.queueNibble((cap ? 4 : 0) | (tms ? 2 : 0) | (tdi ? 1 : 0));
+    // CMD_CLK: bit 3=0, bit 2=cap, bit 1=tdi, bit 0=tms
+    this.queueNibble((cap ? 4 : 0) | (tdi ? 2 : 0) | (tms ? 1 : 0));
     if (cap) this.pendingInBits++;
   }
+
 
   public async writeFlushCommand(): Promise<void> {
     this.queueNibble(0xA); // CMD_FLUSH
@@ -242,15 +243,12 @@ export class EspJtag {
     }
   }
 
-  /**
-   * RISC-V DMI implementation for ESP32-C5
-   */
   public async dmiTransfer(address: number, data: number, op: 1 | 2): Promise<number | null> {
     if (!this.device) return null;
 
     try {
       this.pendingInBits = 0;
-      // 1. Load IR with 0x12 (DMI)
+      // 1. Load IR with 0x11 (DMI)
       for (let i = 0; i < 7; i++) await this.clock(true, false, false); // Reset
       await this.clock(false, false, false); // Idle
       await this.clock(true, false, false);  // Select-DR
@@ -258,8 +256,8 @@ export class EspJtag {
       await this.clock(false, false, false); // Capture-IR
       await this.clock(false, false, false); // Shift-IR
 
-      // Shift in 0x12 (5 bits) - Least Significant Bit First
-      const ir = 0x12;
+      // Shift in 0x11 (5 bits) - Least Significant Bit First
+      const ir = 0x11;
       for (let i = 0; i < 4; i++) await this.clock(false, (ir >> i) & 1 ? true : false, false);
       await this.clock(true, (ir >> 4) & 1 ? true : false, false); // Exit-IR
       await this.clock(true, false, false); // Update-IR
