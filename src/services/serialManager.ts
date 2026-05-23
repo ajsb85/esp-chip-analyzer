@@ -268,12 +268,22 @@ class SerialManager {
     this.reconnectTimer = setTimeout(retry, delay);
   }
 
-  /**
-   * Map standard serial errors.
-   */
   private handleError(err: any) {
     let message = err?.message || String(err);
     let errClass: SerialConnectionState['errorClass'] = 'Unknown';
+
+    const isUserCancel = 
+      err.name === 'NotFoundError' || 
+      message.includes('No port selected') || 
+      message.includes('User cancelled') ||
+      message.includes('cancel');
+
+    if (isUserCancel) {
+      console.log('[SERIAL] Port selection cancelled by the user.');
+      // Keep state clean and clear previous errors
+      this.updateState({ error: null, errorClass: null });
+      return;
+    }
 
     if (err.name === 'SecurityError') {
       errClass = 'Security';
