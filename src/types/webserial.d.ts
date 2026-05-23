@@ -76,6 +76,7 @@ interface USBDevice {
   claimInterface(interfaceNumber: number): Promise<void>;
   releaseInterface(interfaceNumber: number): Promise<void>;
   transferOut(endpointNumber: number, data: BufferSource): Promise<any>;
+  transferIn(endpointNumber: number, length: number): Promise<{ data: DataView; status: string }>;
   controlTransferIn(setup: {
     requestType: 'vendor' | 'standard' | 'class';
     recipient: 'device' | 'interface' | 'endpoint' | 'other';
@@ -84,6 +85,16 @@ interface USBDevice {
     index: number;
   }, length: number): Promise<{
     data?: DataView;
+    status: 'ok' | 'stall' | 'babble';
+  }>;
+  controlTransferOut(setup: {
+    requestType: 'vendor' | 'standard' | 'class';
+    recipient: 'device' | 'interface' | 'endpoint' | 'other';
+    request: number;
+    value: number;
+    index: number;
+  }, data?: BufferSource): Promise<{
+    bytesWritten: number;
     status: 'ok' | 'stall' | 'babble';
   }>;
   forget(): Promise<void>;

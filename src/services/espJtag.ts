@@ -6,17 +6,31 @@
 export class EspJtag {
   private device: USBDevice | null = null;
   private interfaceNumber: number = 0;
+  private endpointIn: number = 0;
   private endpointOut: number = 0;
 
-  public async connect(): Promise<boolean> {
+  public async getPairedDevices(): Promise<USBDevice[]> {
+    if (!navigator.usb) return [];
+    try {
+      const devices = await navigator.usb.getDevices();
+      return devices.filter(d => d.vendorId === 0x303A && d.productId === 0x1001);
+    } catch (e) {
+      console.error('Failed to get paired WebUSB devices:', e);
+      return [];
+    }
+  }
+
+  public async connect(selectedDevice?: USBDevice): Promise<boolean> {
     try {
       if (!navigator.usb) {
         console.error('WebUSB not supported');
         return false;
       }
-      const device = await navigator.usb.requestDevice({
+      
+      const device = selectedDevice || await navigator.usb.requestDevice({
         filters: [{ vendorId: 0x303A, productId: 0x1001 }]
       });
+      
       await device.open();
       
       // Find JTAG interface (usually class 0xFF, subclass 0xFF, protocol 0x01)
@@ -29,6 +43,7 @@ export class EspJtag {
               this.interfaceNumber = iface.interfaceNumber;
               for (const ep of alt.endpoints) {
                 if (ep.direction === 'out') this.endpointOut = ep.endpointNumber;
+                if (ep.direction === 'in') this.endpointIn = ep.endpointNumber;
               }
               if (device.configuration?.configurationValue !== configuration.configurationValue) {
                 await device.selectConfiguration(configuration.configurationValue);
@@ -72,6 +87,10 @@ export class EspJtag {
     return this.device !== null;
   }
 
+  public getDevice(): USBDevice | null {
+    return this.device;
+  }
+
   /**
    * Send CMD_RST
    * bit 3=1, bit 2=0, bit 1=0, bit 0=srst
@@ -101,6 +120,58 @@ export class EspJtag {
     const cmd = 0x0 | (cap ? 4 : 0) | (tdi ? 2 : 0) | (tms ? 1 : 0);
     const data = new Uint8Array([cmd]);
     await this.device.transferOut(this.endpointOut, data);
+  }
+
+  /**
+   * Read IN endpoint (TDO bits if captured)
+   */
+  public async readIn(length: number = 64): Promise<Uint8Array | null> {
+    if (!this.device) return null;
+    try {
+      const result = await this.device.transferIn(this.endpointIn, length);
+      if (result.status === 'ok' && result.data) {
+        return new Uint8Array(result.data.buffer, result.data.byteOffset, result.data.byteLength);
+      }
+      return null;
+    } catch (e) {
+      console.error('Failed to read IN endpoint:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Set JTAG Clock Divisor
+   * VEND_JTAG_SETDIV = 0
+   */
+  public async setDivisor(divisor: number): Promise<void> {
+    if (!this.device) return;
+    await this.device.controlTransferOut({
+      requestType: 'vendor',
+      recipient: 'device',
+      request: 0,
+      value: divisor,
+      index: 0
+    });
+  }
+
+  /**
+   * Get TDO State directly
+   * VEND_JTAG_GETTDO = 2
+   */
+  public async getTdo(): Promise<number | null> {
+    if (!this.device) return null;
+    const result = await this.device.controlTransferIn({
+      requestType: 'vendor',
+      recipient: 'device',
+      request: 2,
+      value: 0,
+      index: 0
+    }, 1);
+    
+    if (result.status === 'ok' && result.data) {
+      return result.data.getUint8(0);
+    }
+    return null;
   }
 }
 

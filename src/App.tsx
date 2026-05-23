@@ -19,6 +19,7 @@ import SearchIcon from '@react-spectrum/s2/icons/Search';
 import DataSettingsIcon from '@react-spectrum/s2/icons/DataSettings';
 import DataIcon from '@react-spectrum/s2/icons/Data';
 import DataUploadIcon from '@react-spectrum/s2/icons/DataUpload';
+import BugIcon from '@react-spectrum/s2/icons/Bug';
 
 const appContainerStyles = style({
   maxWidth: 1200,
@@ -59,7 +60,7 @@ const rightColumnStyles = style({
   width: '100%',
 });
 
-type AppTab = 'terminal' | 'diagnostics' | 'signals' | 'flasher' | 'forensic';
+type AppTab = 'terminal' | 'diagnostics' | 'signals' | 'flasher' | 'forensic' | 'jtag';
 
 function App() {
   const [serialState, setSerialState] = useState<SerialConnectionState>(serialManager.getState());
@@ -174,7 +175,6 @@ function App() {
           <UsbConverterCard 
             serialState={serialState}
           />
-          <EspJtagCard />
         </section>
 
         <section className={rightColumnStyles}>
@@ -186,6 +186,7 @@ function App() {
           >
             <TabList aria-label="Chip Analyzer Modes">
               <Tab id="terminal"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><CodeIcon /> Serial Terminal</div></Tab>
+              <Tab id="jtag"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><BugIcon /> WebOCD JTAG</div></Tab>
               <Tab id="flasher"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><DataUploadIcon /> Firmware Flasher</div></Tab>
               <Tab id="forensic"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><SearchIcon /> Firmware Forensic</div></Tab>
               <Tab id="diagnostics"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><DataSettingsIcon /> Chip Diagnostics</div></Tab>
@@ -199,6 +200,9 @@ function App() {
                 onSendData={handleSendData}
                 onClearLogs={handleClearLogs}
               />
+            </TabPanel>
+            <TabPanel id="jtag">
+              <EspJtagCard />
             </TabPanel>
             <TabPanel id="flasher">
               <FirmwareFlasherCard serialState={serialState} />
