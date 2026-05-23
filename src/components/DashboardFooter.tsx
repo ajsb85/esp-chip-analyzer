@@ -3,6 +3,7 @@ import { Divider } from '@react-spectrum/s2/Divider';
 import { Link } from '@react-spectrum/s2/Link';
 import { Badge } from '@react-spectrum/s2/Badge';
 import { StatusLight } from '@react-spectrum/s2/StatusLight';
+import { Button } from '@react-spectrum/s2/Button';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
 
 interface DashboardFooterProps {
@@ -172,6 +173,36 @@ export const DashboardFooter: FC<DashboardFooterProps> = ({ isOnline }) => {
             <StatusLight variant={isOnline ? 'positive' : 'negative'}>
               Connection: {isOnline ? 'Online / Operational' : 'Offline / Standalone Mode'}
             </StatusLight>
+
+            <Button
+              onPress={async () => {
+                try {
+                  // 1. Unregister all service workers
+                  if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const registration of registrations) {
+                      await registration.unregister();
+                    }
+                  }
+                  // 2. Clear all caches
+                  if ('caches' in window) {
+                    const cacheKeys = await caches.keys();
+                    for (const key of cacheKeys) {
+                      await caches.delete(key);
+                    }
+                  }
+                  // 3. Reload window
+                  window.location.reload();
+                } catch (err) {
+                  console.error('Failed to force update PWA:', err);
+                  window.location.reload();
+                }
+              }}
+              variant="secondary"
+              styles={style({ marginTop: 8, width: 'full' }) as any}
+            >
+              🔄 Force Update PWA
+            </Button>
           </div>
         </div>
       </div>
