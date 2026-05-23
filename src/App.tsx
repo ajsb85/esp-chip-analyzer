@@ -193,6 +193,7 @@ function App() {
         {/* Right Side: Tabbed Workspace */}
         <section className={rightColumnStyles as any}>
           <Tabs 
+            aria-label="Chip Analyzer Workspace"
             selectedKey={activeTab} 
             onSelectionChange={(key) => setActiveTab(key as any)}
             styles={style({ width: '100%' }) as any}
