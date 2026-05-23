@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { serialManager } from './services/serialManager';
 import type { SerialConnectionState } from './services/serialManager';
 import { DashboardHeader } from './components/DashboardHeader';
+import { DashboardFooter } from './components/DashboardFooter';
 import { ConnectionPanel } from './components/ConnectionPanel';
 import { SignalMonitor } from './components/SignalMonitor';
 import { UsbConverterCard } from './components/UsbConverterCard';
@@ -157,6 +158,9 @@ function App() {
           />
         </section>
       </main>
+
+      {/* Corporate Anchored Footer */}
+      <DashboardFooter isOnline={isOnline} />
     </div>
   );
 }

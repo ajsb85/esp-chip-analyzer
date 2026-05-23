@@ -1,79 +1,79 @@
 @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --font-sans: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
 
   /* Bushers Electronics Corporate Colors */
   --corporate-yellow: #FAD900;
   --corporate-red: #BB121A;
   --corporate-blue: #095ABA;
 
-  /* Theme-dependent CSS Variables (Dark Mode Default) */
-  --bg-app: 224 25% 6%;
-  --bg-gradient-glow-1: 212 91% 38% / 0.15; /* Corporate Blue glow */
-  --bg-gradient-glow-2: 357 82% 40% / 0.12; /* Corporate Red glow */
+  /* Premium HSL-Tailored Dark Mode (Slate-Navy theme) */
+  --bg-app: 224 35% 8%;
+  --bg-gradient-glow-1: 212 91% 38% / 0.12; /* Corporate Blue glow */
+  --bg-gradient-glow-2: 357 82% 40% / 0.08; /* Corporate Red glow */
   
-  --card-glass: 222 22% 11% / 0.55;
-  --border-glass: 220 25% 20% / 0.45;
-  --border-glass-hover: 212 90% 40% / 0.25;
+  --card-glass: 224 30% 12% / 0.65;
+  --border-glass: 224 20% 18% / 0.70;
+  --border-glass-hover: 212 90% 55% / 0.35;
 
-  --accent-primary: 186 100% 48%; /* Cyan glow */
-  --accent-glow: 186 100% 48% / 0.35;
+  --accent-primary: 212 90% 55%; /* Rich Corporate Blue Accent */
+  --accent-glow: 212 90% 55% / 0.30;
   
-  --accent-secondary: 272 100% 64%; /* Purple */
-  --accent-secondary-glow: 272 100% 64% / 0.35;
+  --accent-secondary: 357 80% 52%; /* Rich Corporate Red Accent */
+  --accent-secondary-glow: 357 80% 52% / 0.25;
 
   --success-green: 142 70% 50%;
-  --success-glow: 142 70% 50% / 0.4;
+  --success-glow: 142 70% 50% / 0.35;
   
-  --warning-orange: 32 95% 55%;
-  --error-red: 350 85% 55%;
-  --error-glow: 350 85% 55% / 0.4;
+  --warning-orange: 45 100% 50%; /* Corporate Yellow-Gold Accent */
+  --error-red: 357 80% 52%;
+  --error-glow: 357 80% 52% / 0.35;
 
   --text-primary: 210 20% 98%;
-  --text-secondary: 215 15% 75%;
-  --text-muted: 215 12% 52%;
+  --text-secondary: 215 15% 78%;
+  --text-muted: 215 12% 56%;
 
-  --terminal-bg: #020306;
-  --terminal-bar-bg: #060910;
-  --terminal-header-bg: rgba(255, 255, 255, 0.03);
+  --terminal-bg: #03050a;
+  --terminal-bar-bg: #070b14;
+  --terminal-header-bg: rgba(255, 255, 255, 0.02);
 
-  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   --border-radius-lg: 16px;
   --border-radius-md: 10px;
 }
 
-/* Light Theme Variables */
+/* Premium HSL-Tailored Light Theme (Soft Titanium-Grey) */
 .light-theme {
-  --bg-app: 215 20% 95%;
-  --bg-gradient-glow-1: 212 91% 38% / 0.08;
-  --bg-gradient-glow-2: 357 82% 40% / 0.06;
+  --bg-app: 210 20% 95%;
+  --bg-gradient-glow-1: 212 91% 38% / 0.06;
+  --bg-gradient-glow-2: 357 82% 40% / 0.04;
   
-  --card-glass: 0 0% 100% / 0.65;
-  --border-glass: 215 20% 80% / 0.5;
-  --border-glass-hover: 212 91% 38% / 0.25;
+  --card-glass: 0 0% 100% / 0.75;
+  --border-glass: 210 15% 85% / 0.70;
+  --border-glass-hover: 212 90% 38% / 0.30;
 
-  --accent-primary: 212 91% 38%; /* Corporate Blue */
-  --accent-glow: 212 91% 38% / 0.15;
+  --accent-primary: 212 90% 38%; /* Deep Corporate Blue Accent */
+  --accent-glow: 212 90% 38% / 0.15;
   
-  --accent-secondary: 357 82% 40%; /* Corporate Red */
-  --accent-secondary-glow: 357 82% 40% / 0.15;
+  --accent-secondary: 357 80% 38%; /* Deep Corporate Red Accent */
+  --accent-secondary-glow: 357 80% 38% / 0.12;
 
-  --success-green: 142 70% 40%;
-  --success-glow: 142 70% 40% / 0.2;
+  --success-green: 142 70% 35%;
+  --success-glow: 142 70% 35% / 0.15;
   
-  --warning-orange: 32 95% 45%;
-  --error-red: 350 85% 45%;
-  --error-glow: 350 85% 45% / 0.2;
+  --warning-orange: 45 100% 40%; /* Deep Corporate Gold Accent */
+  --error-red: 350 85% 42%;
+  --error-glow: 350 85% 42% / 0.15;
 
   --text-primary: 224 25% 12%;
   --text-secondary: 220 15% 35%;
   --text-muted: 220 10% 55%;
 
-  --terminal-bg: #f8f9fa;
-  --terminal-bar-bg: #e9ecef;
-  --terminal-header-bg: rgba(0, 0, 0, 0.03);
+  --terminal-bg: #f8f9fc;
+  --terminal-bar-bg: #eef1f6;
+  --terminal-header-bg: rgba(0, 0, 0, 0.02);
 }
 
 * {
