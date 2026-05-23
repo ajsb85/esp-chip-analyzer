@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FC } from 'react';
 import type { SerialConnectionState } from '../services/serialManager';
 import { serialManager } from '../services/serialManager';
@@ -10,6 +10,7 @@ import { Badge } from '@react-spectrum/s2/Badge';
 import { ProgressBar } from '@react-spectrum/s2/ProgressBar';
 import { Text } from '@react-spectrum/s2';
 import { Picker, PickerItem } from '@react-spectrum/s2/Picker';
+import { Switch } from '@react-spectrum/s2/Switch';
 import { style, iconStyle } from "@react-spectrum/s2/style" with { type: "macro" };
 import DataUploadIcon from '@react-spectrum/s2/icons/DataUpload';
 import AlertTriangleIcon from '@react-spectrum/s2/icons/AlertTriangle';
@@ -76,6 +77,7 @@ export const FirmwareFlasherCard: FC<FirmwareFlasherCardProps> = ({ serialState 
   const [flashBaud, setFlashBaud] = useState<number>(460800);
   const [selectedMethod, setSelectedMethod] = useState<string>('merged');
   const [partitions, setPartitions] = useState<PartitionEntry[]>([]);
+  const [useStub, setUseStub] = useState<boolean>(true);
 
   const activeMethod = firmwareOptions.find(o => o.id === selectedMethod) || firmwareOptions[0];
 
@@ -116,6 +118,7 @@ export const FirmwareFlasherCard: FC<FirmwareFlasherCardProps> = ({ serialState 
           port,
           flashBaud,
           fileArray,
+          { useStub },
           (msg, percent) => {
             setProgressMsg(msg);
             if (percent !== undefined) setProgressPercent(percent);
@@ -181,6 +184,15 @@ export const FirmwareFlasherCard: FC<FirmwareFlasherCardProps> = ({ serialState 
           <PickerItem id="460800">460800</PickerItem>
           <PickerItem id="921600">921600 (Fast)</PickerItem>
         </Picker>
+      </div>
+
+      <div className={style({ display: 'flex', alignItems: 'center', gap: 12, backgroundColor: 'gray-50', padding: 12, borderRadius: 'lg', borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200' }) as any}>
+        <Switch isSelected={useStub} onChange={setUseStub}>
+          <Text styles={style({ font: 'body-xs', fontWeight: 'bold' })}>Use High-Speed Stub Loader</Text>
+        </Switch>
+        <Text styles={style({ font: 'body-2xs', color: 'neutral-subdued', flex: 1 })}>
+          Disable this if you encounter "Overlapping address range" errors during the RAM upload phase.
+        </Text>
       </div>
 
       {partitions.length > 0 && (

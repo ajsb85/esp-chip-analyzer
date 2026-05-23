@@ -70,7 +70,16 @@ const terminalHeaderStyles = style({
 });
 
 const screenStyles = style({
-  backgroundColor: 'layer-2',
+  // Force background: White for Light mode, Black for Dark mode
+  backgroundColor: {
+    default: 'white',
+    _dark: 'black'
+  },
+  // Force text: Black for Light mode, White for Dark mode
+  color: {
+    default: 'black',
+    _dark: 'white'
+  },
   fontFamily: 'code',
   font: 'body-xs',
   padding: 16,
@@ -92,12 +101,18 @@ const lineTimeStyles = style({
   userSelect: 'none',
 });
 
-const errorLineStyles = style({ color: 'red-500', fontFamily: 'code' });
-const warningLineStyles = style({ color: 'orange-500', fontFamily: 'code' });
-const infoLineStyles = style({ color: 'green-500', fontFamily: 'code' });
-const debugLineStyles = style({ color: 'purple-500', fontFamily: 'code' });
-const systemLineStyles = style({ color: 'blue-500', fontFamily: 'code', fontWeight: 'bold' });
-const defaultLineStyles = style({ color: 'neutral', fontFamily: 'code' });
+const errorLineStyles = style({ color: 'red-600', fontFamily: 'code' });
+const warningLineStyles = style({ color: 'orange-600', fontFamily: 'code' });
+const infoLineStyles = style({ color: 'green-600', fontFamily: 'code' });
+const debugLineStyles = style({ color: 'blue-600', fontFamily: 'code' });
+const systemLineStyles = style({ color: 'gray-600', fontFamily: 'code', fontWeight: 'bold' });
+const defaultLineStyles = style({ 
+  color: {
+    default: 'black',
+    _dark: 'white'
+  }, 
+  fontFamily: 'code' 
+});
 
 const getLineStyles = (type: LogLine['type']) => {
   switch (type) {

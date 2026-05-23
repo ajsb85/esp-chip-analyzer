@@ -14,9 +14,6 @@ export interface EspChipDetails {
 export type ProgressCallback = (text: string) => void;
 
 class EspDiagnostics {
-  private loader: ESPLoader | null = null;
-  private transport: Transport | null = null;
-
   /**
    * Performs the Espressif bootloader handshake and diagnostics.
    * Note: This will put the chip into bootloader mode, resetting it.
@@ -26,10 +23,10 @@ class EspDiagnostics {
     baudRate: number,
     onProgress: ProgressCallback
   ): Promise<EspChipDetails | null> {
+    let transport: Transport | null = null;
     try {
       onProgress('Initializing WebSerial transport layer...');
-      // esptool-js Transport requires the SerialPort object
-      this.transport = new Transport(port, true);
+      transport = new Transport(port, true);
       
       const termMock = {
         clean: () => {},
@@ -42,19 +39,19 @@ class EspDiagnostics {
       };
 
       onProgress('Creating ESPLoader session...');
-      this.loader = new ESPLoader({
-        transport: this.transport,
+      const loader = new ESPLoader({
+        transport: transport,
         baudrate: baudRate,
         terminal: termMock,
         debugLogging: false
       });
 
       onProgress('Synchronizing with bootloader... (Toggling DTR/RTS)');
-      const chipType = await this.loader.main();
+      const chipType = await loader.main();
       serialManager.setChipMode('Download');
       onProgress(`Chip type identified: ${chipType}`);
 
-      const chip = this.loader.chip;
+      const chip = loader.chip;
       if (!chip) {
         throw new Error('Sync completed but chip ROM module was not initialized.');
       }
@@ -62,7 +59,7 @@ class EspDiagnostics {
       onProgress('Reading MAC Address from eFuse registers...');
       let macAddress = 'Unknown';
       try {
-        macAddress = await chip.readMac(this.loader);
+        macAddress = await chip.readMac(loader);
       } catch (macErr) {
         console.error('Failed to read MAC address:', macErr);
         onProgress('Warning: Failed to read eFuse MAC address.');
@@ -71,7 +68,7 @@ class EspDiagnostics {
       onProgress('Querying crystal frequency...');
       let crystalFreq = 'Unknown';
       try {
-        const freqVal = await chip.getCrystalFreq(this.loader);
+        const freqVal = await chip.getCrystalFreq(loader);
         crystalFreq = `${freqVal} MHz`;
       } catch (freqErr) {
         console.error('Failed to get crystal frequency:', freqErr);
@@ -80,7 +77,7 @@ class EspDiagnostics {
       onProgress('Extracting eFuse chip features...');
       let features: string[] = [];
       try {
-        features = await chip.getChipFeatures(this.loader);
+        features = await chip.getChipFeatures(loader);
       } catch (featErr) {
         console.error('Failed to read features:', featErr);
       }
@@ -88,7 +85,7 @@ class EspDiagnostics {
       onProgress('Fetching chip model description...');
       let description = 'N/A';
       try {
-        description = await chip.getChipDescription(this.loader);
+        description = await chip.getChipDescription(loader);
       } catch (descErr) {
         console.error('Failed to get chip description:', descErr);
       }
@@ -96,7 +93,7 @@ class EspDiagnostics {
       onProgress('Detecting connected flash memory size...');
       let flashSize = 'Unknown';
       try {
-        flashSize = await this.loader.detectFlashSize();
+        flashSize = await loader.detectFlashSize();
       } catch (flashErr) {
         console.error('Failed to detect flash size:', flashErr);
         onProgress('SPI Flash size query skipped or failed.');
@@ -119,12 +116,11 @@ class EspDiagnostics {
       onProgress(`Error: ${msg}`);
       return null;
     } finally {
-      // We keep the transport open if we want to run consecutive commands,
-      // but for pure read-only diagnostics we release DTR/RTS to let the chip run.
-      if (this.transport) {
+      if (transport) {
         try {
-          await this.transport.setDTR(false);
-          await this.transport.setRTS(false);
+          await transport.setDTR(false);
+          await transport.setRTS(false);
+          await transport.disconnect();
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (_e) { /* ignore */ }
       }
@@ -138,24 +134,28 @@ class EspDiagnostics {
     try {
       const info = port.getInfo();
       const isUsbJtag = info.usbVendorId === 0x303A && info.usbProductId === 0x1001;
-
-      const tempTransport = this.transport || new Transport(port, true);
-
-      if (isUsbJtag) {
-        // Native USB-JTAG reset sequence
-        await tempTransport.setRTS(false);
-        await new Promise(resolve => setTimeout(resolve, 100));
-        await tempTransport.setRTS(true); // Pulse RTS to trigger reset
-        await new Promise(resolve => setTimeout(resolve, 100));
-        await tempTransport.setRTS(false);
-      } else {
-        // Hard reset sequence (toggle DTR/RTS)
-        await tempTransport.setDTR(false);
-        await new Promise(resolve => setTimeout(resolve, 100));
-        await tempTransport.setRTS(true);
-        await new Promise(resolve => setTimeout(resolve, 100));
-        await tempTransport.setDTR(true);
-        await tempTransport.setRTS(false);
+      
+      const transport = new Transport(port, true);
+      
+      try {
+        if (isUsbJtag) {
+          // Native USB-JTAG reset sequence
+          await transport.setRTS(false);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          await transport.setRTS(true); // Pulse RTS to trigger reset
+          await new Promise(resolve => setTimeout(resolve, 100));
+          await transport.setRTS(false);
+        } else {
+          // Hard reset sequence (toggle DTR/RTS)
+          await transport.setDTR(false);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          await transport.setRTS(true);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          await transport.setDTR(true);
+          await transport.setRTS(false);
+        }
+      } finally {
+        await transport.disconnect();
       }
     } catch (err) {
       console.error('[EspDiagnostics] Hard reset failed:', err);
@@ -169,17 +169,16 @@ class EspDiagnostics {
     port: SerialPort,
     baudRate: number,
     fileArray: { data: Uint8Array; address: number }[],
+    options: { useStub: boolean },
     onProgress: (msg: string, percent?: number) => void
   ): Promise<boolean> {
+    let transport: Transport | null = null;
     try {
       const info = port.getInfo();
       const isUsbJtag = info.usbVendorId === 0x303A && info.usbProductId === 0x1001;
 
-      if (this.transport) {
-        try { await this.transport.disconnect(); } catch(_e){ /* ignore */ }
-      }
-      this.transport = new Transport(port, true);
-
+      transport = new Transport(port, true);
+      
       const termMock = {
         clean: () => {},
         writeLine: (data: string) => {
@@ -190,80 +189,68 @@ class EspDiagnostics {
         write: () => {}
       };
 
-      this.loader = new ESPLoader({
-        transport: this.transport,
+      let loader = new ESPLoader({
+        transport: transport,
         baudrate: baudRate,
         terminal: termMock,
         debugLogging: false
       });
 
       onProgress('Synchronizing with bootloader...');
-
+      
       if (isUsbJtag) {
         onProgress('Detected Native USB-JTAG Unit. Using specialized sync sequence...');
-        // For USB-JTAG, we might need to manually trigger the sync if loader.main() fails
-        // but esptool-js generally handles the PID internally if configured correctly.
       }
 
-      await (this.loader as any).main();
+      await (loader as any).main();
       serialManager.setChipMode('Download');
 
-      // Check if any part of the binary overlaps with the flasher stub address space (usually 0x40800000)
-      const hasOverlap = fileArray.some(f => {
-        // If the address is in RAM range, it might conflict
-        return f.address >= 0x40000000 && f.address < 0x50000000;
-      });
-
-      if (hasOverlap) {
-        onProgress('Detected RAM segments in binary. Disabling high-speed stub to avoid memory conflict...');
-      } else {
+      if (options.useStub) {
         try {
           onProgress('Uploading flasher stub...');
-          this.loader = (await (this.loader as any).runStub()) as ESPLoader;
+          loader = (await (loader as any).runStub()) as ESPLoader;
         } catch (stubErr: any) {
-          onProgress('Warning: Failed to load stub. Falling back to ROM mode...');
+          onProgress('Warning: Failed to load stub (likely RAM overlap). Falling back to ROM mode...');
         }
+      } else {
+        onProgress('Stub loader disabled by user. Using ROM flashing mode...');
       }
 
       onProgress('Flashing firmware image...');
-      if (this.loader) {
-        await (this.loader as any).writeFlash({
-          fileArray,
-          flashMode: 'keep',
-          flashFreq: 'keep',
-          flashSize: 'keep',
-          eraseAll: false,
-          compress: true,
-          reportProgress: (_fileIndex: number, written: number, total: number) => {
-            const percent = Math.round((written / total) * 100);
-            onProgress(`Writing flash... ${written}/${total} bytes`, percent);
-          }
-        });
-      }
-
+      await (loader as any).writeFlash({
+        fileArray,
+        flashMode: 'keep',
+        flashFreq: 'keep',
+        flashSize: 'keep',
+        eraseAll: false,
+        compress: true,
+        reportProgress: (_fileIndex: number, written: number, total: number) => {
+          const percent = Math.round((written / total) * 100);
+          onProgress(`Writing flash... ${written}/${total} bytes`, percent);
+        }
+      });
+      
       onProgress('Flashing complete! Verifying MD5...');
 
       onProgress('Restarting device into application mode...');
-      if (this.loader) {
-        // Use specialized reset for USB-JTAG
-        await (this.loader as any).after(isUsbJtag ? 'usb_reset' : 'hard_reset');
-      }
+      await (loader as any).after(isUsbJtag ? 'usb_reset' : 'hard_reset');
 
       return true;
-} catch (err: unknown) {
-console.error('[EspDiagnostics] Flashing error:', err);
-onProgress(`Error: ${err instanceof Error ? err.message : String(err)}`);
-return false;
-} finally {
-// Release DTR/RTS properly
-if (this.transport) {
-  try {
-    await this.transport.setDTR(false);
-    await this.transport.setRTS(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (_e) { /* ignore */ }
-}
-}
+    } catch (err: unknown) {
+      console.error('[EspDiagnostics] Flashing error:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      onProgress(`Error: ${msg}`);
+      return false;
+    } finally {
+      if (transport) {
+        try {
+          await transport.setDTR(false);
+          await transport.setRTS(false);
+          await transport.disconnect();
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (_e) { /* ignore */ }
+      }
+    }
   }
 }
 
