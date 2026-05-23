@@ -9,15 +9,15 @@
   "orientation": "any",
   "icons": [
     {
-      "src": "https://raw.githubusercontent.com/espressif/esptool-js/master/examples/typescript/assets/espressif.png",
-      "sizes": "192x192",
-      "type": "image/png",
+      "src": "./icons.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "https://raw.githubusercontent.com/espressif/esptool-js/master/examples/typescript/assets/espressif.png",
-      "sizes": "512x512",
-      "type": "image/png",
+      "src": "./favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
       "purpose": "any"
     }
   ]
