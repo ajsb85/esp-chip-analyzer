@@ -67,9 +67,17 @@ export const JtagDebuggerCard: FC = () => {
       response = registers.map(r => `${r.name.padEnd(8)} ${r.value}`).join('\n');
     } else if (c === 'backtrace' || c === 'bt') {
       response = '#0  0x42004560 in app_main () at main/jtag-showcase-fw.c:20\n#1  0x40000400 in start_cpu0 ()';
+    } else if (c === 'info locals') {
+      response = 'jtag_counter = 42\njtag_control = 0\nstatus_flags = 0x00000001\ntemp_buffer = 0x4080AF10';
+    } else if (c === 'maintenance flush register-cache') {
+      response = 'Register cache flushed.';
+    } else if (c === 'x/16xw $sp') {
+      response = '0x4080AF00: 0x00000000 0x40000400 0x42004560 0x00000000\n0x4080AF10: 0x00000000 0x00000000 0x00000000 0x00000000\n0x4080AF20: 0x00000000 0x00000000 0x00000000 0x00000000\n0x4080AF30: 0x00000000 0x00000000 0x00000000 0x00000000';
     } else if (c.startsWith('set variable jtag_control')) {
       const val = c.split('=').pop()?.trim();
       response = `jtag_control set to ${val}`;
+    } else if (c.startsWith('set {char[')) {
+      response = '';
     } else if (c.startsWith('x/')) {
       response = `${c.split(' ').pop()}: 0x00000000 0x11223344 0x55667788 0x99AABBCC`;
     } else {
@@ -188,35 +196,57 @@ export const JtagDebuggerCard: FC = () => {
         </TabPanel>
 
         <TabPanel id="console">
-          <div className={style({ display: 'flex', flexDirection: 'column', gap: 12, paddingY: 12 }) as any}>
-            <div className={style({
-              backgroundColor: 'gray-900',
-              color: 'gray-50',
-              padding: 12,
-              borderRadius: 'lg',
-              fontFamily: 'code',
-              font: 'detail-sm',
-              height: 300,
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 4,
-              whiteSpace: 'pre-wrap'
-            }) as any}>
-              {gdbLog.map((line, i) => (
-                <div key={i} style={{ color: line.startsWith('(gdb)') ? '#60A5FA' : '#F9FAFB' }}>{line}</div>
-              ))}
+          <div className={style({ display: 'grid', gridTemplateColumns: { default: '1fr', lg: '1fr 250px' }, gap: 16, paddingY: 12 }) as any}>
+            
+            <div className={style({ display: 'flex', flexDirection: 'column', gap: 12 }) as any}>
+              <div className={style({
+                backgroundColor: 'gray-900',
+                color: 'gray-50',
+                padding: 12,
+                borderRadius: 'lg',
+                fontFamily: 'code',
+                font: 'detail-sm',
+                height: 300,
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                whiteSpace: 'pre-wrap'
+              }) as any}>
+                {gdbLog.map((line, i) => (
+                  <div key={i} style={{ color: line.startsWith('(gdb)') ? '#60A5FA' : '#F9FAFB' }}>{line}</div>
+                ))}
+              </div>
+              <div className={style({ display: 'flex', gap: 8 }) as any}>
+                <TextField 
+                  aria-label="GDB Command"
+                  value={gdbInput} 
+                  onChange={setGdbInput}
+                  onKeyDown={(e) => e.key === 'Enter' && handleGdbCommand(gdbInput)}
+                  styles={style({ flex: 1 }) as any} 
+                />
+                <Button variant="primary" onPress={() => handleGdbCommand(gdbInput)}>Send</Button>
+              </div>
             </div>
-            <div className={style({ display: 'flex', gap: 8 }) as any}>
-              <TextField 
-                aria-label="GDB Command"
-                value={gdbInput} 
-                onChange={setGdbInput}
-                onKeyDown={(e) => e.key === 'Enter' && handleGdbCommand(gdbInput)}
-                styles={style({ flex: 1 }) as any} 
-              />
-              <Button variant="primary" onPress={() => handleGdbCommand(gdbInput)}>Send</Button>
+
+            <div className={style({ display: 'flex', flexDirection: 'column', gap: 16, padding: 16, backgroundColor: 'gray-50', borderRadius: 'lg', borderStyle: 'solid', borderWidth: 1, borderColor: 'gray-200' }) as any}>
+              <Text styles={style({ font: 'body-sm', fontWeight: 'bold' })}>Quick Snippets</Text>
+              
+              <div className={style({ display: 'flex', flexDirection: 'column', gap: 8 }) as any}>
+                <Text styles={style({ font: 'body-2xs', color: 'neutral-subdued', textTransform: 'uppercase', fontWeight: 'bold' })}>Showcase Basic</Text>
+                <Button variant="secondary" onPress={() => handleGdbCommand('p jtag_counter')}>Read Counter</Button>
+                <Button variant="secondary" onPress={() => handleGdbCommand('set variable jtag_control = 99')}>Remote Restart</Button>
+                <Button variant="secondary" onPress={() => handleGdbCommand('set {char[32]}jtag_message = "Hello JTAG!"')}>Set Message</Button>
+              </div>
+
+              <div className={style({ display: 'flex', flexDirection: 'column', gap: 8 }) as any}>
+                <Text styles={style({ font: 'body-2xs', color: 'neutral-subdued', textTransform: 'uppercase', fontWeight: 'bold' })}>Advanced Diagnostics</Text>
+                <Button variant="secondary" onPress={() => handleGdbCommand('x/16xw $sp')}>Dump Stack (SP)</Button>
+                <Button variant="secondary" onPress={() => handleGdbCommand('info locals')}>Inspect Locals</Button>
+                <Button variant="secondary" onPress={() => handleGdbCommand('maintenance flush register-cache')}>Flush Reg Cache</Button>
+              </div>
             </div>
+
           </div>
         </TabPanel>
       </Tabs>
