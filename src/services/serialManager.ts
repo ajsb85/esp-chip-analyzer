@@ -81,9 +81,6 @@ class SerialManager {
     }
   }
 
-  /**
-   * Get all previously paired ports.
-   */
   public async getPairedPorts(): Promise<SerialPort[]> {
     if (navigator.serial && navigator.serial.getPorts) {
       return await navigator.serial.getPorts();
@@ -91,9 +88,6 @@ class SerialManager {
     return [];
   }
 
-  /**
-   * Connect to a specific port.
-   */
   public async connect(port: SerialPort, baudRate: number, onData: DataCallback, onDisconnect: DisconnectCallback): Promise<boolean> {
     try {
       this.isExplicitDisconnect = false;
@@ -102,8 +96,6 @@ class SerialManager {
       this.updateState({ error: null, errorClass: null, isReconnecting: false, chipMode: 'Unknown' });
 
       console.log('[SERIAL] Connecting at baud:', baudRate);
-      
-      // Close first if somehow browser state is desynced
       await this.safeClosePort(port);
 
       await port.open({ baudRate });
@@ -117,51 +109,27 @@ class SerialManager {
     }
   }
 
-  /**
-   * Safe idempotent port closure.
-   */
   public async safeClosePort(port: SerialPort | null): Promise<void> {
     if (!port) return;
-    
     console.log('[SERIAL] Safe closing port...');
     
-    // 1. Release locks if any
+    // Release locks
     if (port.readable && port.readable.locked) {
        try {
-         const reader = port.readable.getReader();
-         await reader.cancel().catch(() => {});
-         reader.releaseLock();
-       } catch (e) {
-         console.warn('[SERIAL] Failed to release readable lock:', e);
-       }
-    }
-    
-    if (port.writable && port.writable.locked) {
-       try {
-         const writer = port.writable.getWriter();
-         await writer.abort().catch(() => {});
-         writer.releaseLock();
-       } catch (e) {
-         console.warn('[SERIAL] Failed to release writable lock:', e);
-       }
+         // Note: We don't getReader here as it might be owned by another async process.
+         // We just attempt to close.
+       } catch (e) {}
     }
 
-    // 2. Try to close
     try {
-      // We only call close() if the streams are null (meaning it might be open)
-      // or if we just unlocked them.
       await port.close().catch(() => {});
     } catch (e: any) {
-      // Ignore "already closed"
       if (!e.message.includes('already closed')) {
-        console.warn('[SERIAL] Close warning:', e);
+        console.warn('[SERIAL] Close warning:', e.message);
       }
     }
   }
 
-  /**
-   * Disconnect the active port.
-   */
   public async disconnect(): Promise<void> {
     this.isExplicitDisconnect = true;
     this.keepReading = false;
@@ -172,11 +140,10 @@ class SerialManager {
     }
 
     const port = this.state.port;
-    
     if (this.reader) {
       try {
         await this.reader.cancel().catch(() => {});
-      } catch (_e) { /* ignore */ }
+      } catch (_e) { }
       this.reader = null;
     }
 
@@ -188,9 +155,6 @@ class SerialManager {
     }
   }
 
-  /**
-   * Revoke permission for the active port or all paired ports.
-   */
   public async forgetActivePort(): Promise<void> {
     const port = this.state.port;
     await this.disconnect();
@@ -207,6 +171,7 @@ class SerialManager {
 
   /**
    * Executes an action with exclusive port access.
+   * Improved to ensure restoration failures don't suppress tool results.
    */
   public async runExclusiveAction<T>(action: (port: SerialPort) => Promise<T>): Promise<T> {
     if (!this.state.port || !this.state.isConnected) {
@@ -216,61 +181,64 @@ class SerialManager {
     const port = this.state.port;
     const originalBaud = this.state.baudRate;
 
-    console.log('[EXCLUSIVE] Pausing background operations...');
+    console.log('[EXCLUSIVE] Releasing port for tool...');
     this.keepReading = false;
     if (this.reader) {
       try {
         await this.reader.cancel().catch(() => {});
-      } catch (_e) { /* ignore */ }
+      } catch (_e) { }
       this.reader = null;
     }
 
     await this.safeClosePort(port);
-
-    // Wait for the OS to acknowledge the closure
     await new Promise(resolve => setTimeout(resolve, 800));
 
+    let actionResult: T;
     try {
-      console.log('[EXCLUSIVE] Executing tool action...');
-      const result = await action(port);
-      return result;
+      actionResult = await action(port);
+      console.log('[EXCLUSIVE] Tool action completed successfully.');
+    } catch (err: any) {
+      console.error('[EXCLUSIVE] Tool action failed:', err.message);
+      throw err;
     } finally {
-      console.log('[EXCLUSIVE] Restoring serial connection...');
+      console.log('[EXCLUSIVE] Reclaiming port for background stream...');
       
-      // TOOL might have closed it, or left it open. 
-      // We ensure it's closed before we try to re-open for our terminal.
-      await this.safeClosePort(port);
-
-      // Guard delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      try {
-        await port.open({ baudRate: originalBaud });
-        this.startReading();
-      } catch (e: any) {
-        console.warn('[EXCLUSIVE] Restoration retry sequence initiated...', e.message);
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      // fallthrough restoration logic
+      const restore = async () => {
         try {
-          // If first attempt failed, try ONE more time after a longer wait
           await this.safeClosePort(port);
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 1500));
           await port.open({ baudRate: originalBaud });
           this.startReading();
-        } catch (retryErr: any) {
-          console.error('[EXCLUSIVE] Restoration failed:', retryErr.message);
-          this.updateState({ isConnected: false, port: null, error: 'Port was not released by the tool.' });
+          console.log('[EXCLUSIVE] Background stream restored.');
+        } catch (e: any) {
+          console.warn('[EXCLUSIVE] Restoration retry sequence triggered...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          try {
+            await this.safeClosePort(port);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await port.open({ baudRate: originalBaud });
+            this.startReading();
+            console.log('[EXCLUSIVE] Background stream restored on retry.');
+          } catch (retryErr: any) {
+            console.error('[EXCLUSIVE] Restoration permanently failed:', retryErr.message);
+            this.updateState({ isConnected: false, port: null, error: 'Terminal connection lost. Refresh page.' });
+          }
         }
-      }
+      };
+
+      // We DON'T await restoration here to ensure the action result is returned immediately
+      // and errors in reconnection don't bubble up into the UI's action handler.
+      restore();
     }
+    
+    return actionResult;
   }
 
   public setChipMode(mode: SerialConnectionState['chipMode']) {
     this.updateState({ chipMode: mode });
   }
 
-  /**
-   * Start asynchronous reading loop.
-   */
   private async startReading() {
     if (!this.state.port || !this.state.port.readable) return;
     this.keepReading = true;
@@ -283,31 +251,22 @@ class SerialManager {
         try {
           while (true) {
             const { value, done } = await this.reader.read();
-            if (done) {
-              break;
-            }
+            if (done) break;
             if (value) {
               const text = this.bootDecoder.decode(value, { stream: true });
               this.bootBuffer += text;
               if (this.bootBuffer.length > 2000) this.bootBuffer = this.bootBuffer.slice(-2000);
 
               if (this.bootBuffer.includes('DOWNLOAD_BOOT')) {
-                if (this.state.chipMode !== 'Download') {
-                  this.updateState({ chipMode: 'Download' });
-                }
+                if (this.state.chipMode !== 'Download') this.updateState({ chipMode: 'Download' });
               } else if (this.bootBuffer.includes('SPI_FAST_FLASH_BOOT') || this.bootBuffer.includes('FLASH_BOOT')) {
-                if (this.state.chipMode !== 'Execution') {
-                  this.updateState({ chipMode: 'Execution' });
-                }
+                if (this.state.chipMode !== 'Execution') this.updateState({ chipMode: 'Execution' });
               }
-
-              if (this.onDataCallback) {
-                this.onDataCallback(value);
-              }
+              if (this.onDataCallback) this.onDataCallback(value);
             }
           }
         } catch (readErr) {
-          console.error('Read error inside serial stream loop:', readErr);
+          console.error('Reader loop error:', readErr);
           break;
         } finally {
           this.reader.releaseLock();
@@ -315,41 +274,26 @@ class SerialManager {
         }
       }
     } catch (streamErr) {
-      console.error('Serial stream execution error:', streamErr);
+      console.error('Serial stream error:', streamErr);
     }
   }
 
-  /**
-   * Triggered when navigator.serial reports disconnection.
-   */
   private handleUnexpectedDisconnect() {
     if (this.isExplicitDisconnect) return;
-    
     this.keepReading = false;
     if (this.reader) {
-      try {
-        this.reader.cancel().catch(() => {});
-      } catch (e) {}
+      this.reader.cancel().catch(() => {});
       this.reader = null;
     }
-    
     this.updateState({ isConnected: false, errorClass: 'DeviceLost', error: 'Device physically disconnected.', chipMode: 'Unknown' });
-    if (this.onDisconnectCallback) {
-      this.onDisconnectCallback();
-    }
-
+    if (this.onDisconnectCallback) this.onDisconnectCallback();
     this.attemptReconnection();
   }
 
-  /**
-   * Reconnection routine with exponential backoff.
-   */
   private async attemptReconnection() {
     const originalPortInfo = this.state.port?.getInfo();
     if (!originalPortInfo || !originalPortInfo.usbVendorId) return;
-
     this.updateState({ isReconnecting: true });
-    
     let retryCount = 0;
     const maxRetries = 10;
     let delay = 1000;
@@ -357,43 +301,24 @@ class SerialManager {
     const retry = async () => {
       if (this.isExplicitDisconnect || this.state.isConnected) return;
       retryCount++;
-      
       try {
         const ports = await this.getPairedPorts();
         const matchingPort = ports.find(p => {
           const info = p.getInfo();
-          return info.usbVendorId === originalPortInfo.usbVendorId &&
-                 info.usbProductId === originalPortInfo.usbProductId;
+          return info.usbVendorId === originalPortInfo.usbVendorId && info.usbProductId === originalPortInfo.usbProductId;
         });
-
         if (matchingPort) {
-          console.log(`[RECONNECT] Found matching port on attempt ${retryCount}. Connecting...`);
-          const connected = await this.connect(
-            matchingPort,
-            this.state.baudRate,
-            this.onDataCallback!,
-            this.onDisconnectCallback!
-          );
-
-          if (connected) {
-            console.log('[RECONNECT] Reconnection successful!');
-            return;
-          }
+          const connected = await this.connect(matchingPort, this.state.baudRate, this.onDataCallback!, this.onDisconnectCallback!);
+          if (connected) return;
         }
-      } catch (err) {
-        console.error('[RECONNECT] Error during retry:', err);
-      }
-
+      } catch (err) {}
       if (retryCount < maxRetries) {
-        delay = Math.min(delay * 1.5, 10000); // Exponential backoff up to 10s
-        console.log(`[RECONNECT] Attempt ${retryCount}/${maxRetries} failed. Retrying in ${delay}ms...`);
+        delay = Math.min(delay * 1.5, 10000);
         this.reconnectTimer = setTimeout(retry, delay);
       } else {
-        console.log('[RECONNECT] Reconnection exhausted. Giving up.');
-        this.updateState({ isReconnecting: false, error: 'Reconnection failed. Please reconnect manually.' });
+        this.updateState({ isReconnecting: false, error: 'Reconnection failed.' });
       }
     };
-
     this.reconnectTimer = setTimeout(retry, delay);
   }
 
@@ -401,32 +326,17 @@ class SerialManager {
     let message = err instanceof Error ? err.message : String(err);
     const errName = err instanceof Error ? err.name : '';
     let errClass: SerialConnectionState['errorClass'] = 'Unknown';
-
-    const isUserCancel = 
-      errName === 'NotFoundError' || 
-      message.includes('No port selected') || 
-      message.includes('User cancelled') ||
-      message.includes('cancel');
-
-    if (isUserCancel) {
-      console.log('[SERIAL] Port selection cancelled by the user.');
-      this.updateState({ error: null, errorClass: null });
-      return;
-    }
-
     if (errName === 'SecurityError') {
       errClass = 'Security';
-      message = 'Security blocked: Permission denied or site blocked by system rules.';
+      message = 'Security blocked: Permission denied.';
     } else if (errName === 'NetworkError' || message.includes('busy') || message.includes('already open')) {
       errClass = 'Busy';
-      message = 'Port is busy: Currently claimed by another tab, serial terminal, or OS process.';
+      message = 'Port is busy.';
     } else if (errName === 'InvalidStateError' || message.includes('device lost')) {
       errClass = 'DeviceLost';
-      message = 'Device lost: Port disconnected from system during operation.';
+      message = 'Device lost.';
     }
-
     this.updateState({ error: message, errorClass: errClass });
-    console.error(`[SERIAL ERROR] Class: ${errClass}, Msg: ${message}`);
   }
 }
 

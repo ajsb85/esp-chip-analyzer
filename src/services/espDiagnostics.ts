@@ -108,9 +108,9 @@ class EspDiagnostics {
     } finally {
       if (transport) {
         try {
-          await transport.setDTR(false);
-          await transport.setRTS(false);
-        } catch (_e) { /* ignore */ }
+          // Explicitly disconnect to stop internal read loops
+          await transport.disconnect();
+        } catch (_e) { /* ignore already closed */ }
       }
     }
   }
@@ -124,11 +124,7 @@ class EspDiagnostics {
       const info = port.getInfo();
       const isUsbJtag = info.usbVendorId === 0x303A && info.usbProductId === 0x1001;
       
-      // Ensure port is open for signal toggling
-      if (!port.readable) {
-        await port.open({ baudRate: 115200 });
-      }
-
+      // esptool-js transport handles port open
       transport = new Transport(port, true);
       
       if (isUsbJtag) {
@@ -148,11 +144,9 @@ class EspDiagnostics {
     } catch (err) {
       console.error('[EspDiagnostics] Hard reset failed:', err);
     } finally {
-      // Release signals
       if (transport) {
         try {
-          await transport.setDTR(false);
-          await transport.setRTS(false);
+          await transport.disconnect();
         } catch (_e) { /* ignore */ }
       }
     }
@@ -216,6 +210,11 @@ class EspDiagnostics {
 
       onProgress('Restarting device...');
       await (loader as any).after('no_reset_stub');
+      
+      // Cleanup this transport before calling hardReset which uses its own
+      await transport.disconnect();
+      transport = null;
+
       await this.hardReset(port);
 
       return true;
@@ -226,8 +225,7 @@ class EspDiagnostics {
     } finally {
       if (transport) {
         try {
-          await transport.setDTR(false);
-          await transport.setRTS(false);
+          await transport.disconnect();
         } catch (_e) { /* ignore */ }
       }
     }
