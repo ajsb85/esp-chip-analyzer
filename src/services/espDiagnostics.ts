@@ -180,39 +180,52 @@ class EspDiagnostics {
         terminal: termMock,
         debugLogging: false
       });
-
       onProgress('Synchronizing with bootloader...');
-      await this.loader.main();
+      await (this.loader as any).main();
+      serialManager.setChipMode('Download');
 
-      onProgress('Flashing firmware...');
-      await this.loader.writeFlash({
-        fileArray,
-        flashMode: 'keep',
-        flashFreq: 'keep',
-        flashSize: 'keep',
-        eraseAll: false,
-        compress: true,
-        reportProgress: (_fileIndex, written, total) => {
-          const percent = Math.round((written / total) * 100);
-          onProgress(`Writing flash... ${written}/${total} bytes`, percent);
-        }
-      });
-      onProgress('Flashing complete!', 100);
-      return true;
-    } catch (err: unknown) {
-      console.error('[EspDiagnostics] Flashing error:', err);
-      const msg = err instanceof Error ? err.message : String(err);
-      onProgress(`Error: ${msg}`);
-      return false;
-    } finally {
-      if (this.transport) {
-        try {
-          await this.transport.setDTR(false);
-          await this.transport.setRTS(false);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (_e) { /* ignore */ }
+      // Crucial: Load the Flasher Stub to prevent watchdog restarts and enable faster writes
+      onProgress('Uploading flasher stub...');
+      this.loader = (await (this.loader as any).runStub()) as ESPLoader;
+
+      onProgress('Flashing firmware image...');
+      if (this.loader) {
+        await (this.loader as any).writeFlash({
+          fileArray,
+          flashMode: 'keep',
+          flashFreq: 'keep',
+          flashSize: 'keep',
+          eraseAll: false,
+          compress: true,
+          reportProgress: (_fileIndex: number, written: number, total: number) => {
+            const percent = Math.round((written / total) * 100);
+            onProgress(`Writing flash... ${written}/${total} bytes`, percent);
+          }
+        });
       }
-    }
+      
+      onProgress('Flashing complete! Verifying MD5...');
+
+      onProgress('Restarting device into application mode...');
+      if (this.loader) {
+        await (this.loader as any).after('hard_reset');
+      }
+
+return true;
+} catch (err: unknown) {
+console.error('[EspDiagnostics] Flashing error:', err);
+onProgress(`Error: ${err instanceof Error ? err.message : String(err)}`);
+return false;
+} finally {
+// Release DTR/RTS properly
+if (this.transport) {
+  try {
+    await this.transport.setDTR(false);
+    await this.transport.setRTS(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (_e) { /* ignore */ }
+}
+}
   }
 }
 

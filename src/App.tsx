@@ -15,6 +15,7 @@ import { Provider } from '@react-spectrum/s2/Provider';
 import { style } from "@react-spectrum/s2/style" with { type: "macro" };
 import { Tabs, TabList, Tab, TabPanel } from '@react-spectrum/s2/Tabs';
 import CodeIcon from '@react-spectrum/s2/icons/Code';
+import SearchIcon from '@react-spectrum/s2/icons/Search';
 import DataSettingsIcon from '@react-spectrum/s2/icons/DataSettings';
 import DataIcon from '@react-spectrum/s2/icons/Data';
 import DataUploadIcon from '@react-spectrum/s2/icons/DataUpload';
@@ -190,6 +191,7 @@ function App() {
             <TabList aria-label="Chip Analyzer Modes">
               <Tab id="terminal"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><CodeIcon /> Serial Terminal</div></Tab>
               <Tab id="flasher"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><DataUploadIcon /> Firmware Flasher</div></Tab>
+              <Tab id="forensic"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><SearchIcon /> Firmware Forensic</div></Tab>
               <Tab id="diagnostics"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><DataSettingsIcon /> Chip Diagnostics</div></Tab>
               <Tab id="signals"><div className={style({ display: 'flex', alignItems: 'center', gap: 8 }) as any}><DataIcon /> RS232 Handshake</div></Tab>
             </TabList>
@@ -226,8 +228,8 @@ function App() {
       </main>
 
       <DashboardFooter isOnline={isOnline} />
-    </Provider>
-  );
-}
+      </Provider>
+      );
+      }
 
-export default App;
+      export default App;
