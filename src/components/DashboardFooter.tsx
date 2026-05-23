@@ -163,7 +163,7 @@ export const DashboardFooter: FC<DashboardFooterProps> = ({ isOnline }) => {
           })}>
             {/* Caching Status */}
             <Badge variant="positive" fillStyle="subtle">
-              <DataUploadIcon /> PWA Status: Fully Offline Cached (v1.1.0)
+              <DataUploadIcon /> PWA Status: Fully Offline Cached (v1.1.1)
             </Badge>
 
             {/* Execution Env */}
