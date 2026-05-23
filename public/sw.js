@@ -2,9 +2,6 @@ const CACHE_NAME = 'esp-analyzer-cache-v1';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './src/main.tsx',
-  './src/App.tsx',
-  './src/index.css',
   './manifest.json',
   './favicon.svg',
   './icons.svg'
